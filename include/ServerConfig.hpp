@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/05 12:59:38 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/05 12:59:48 by migumore         ###   ########.fr       */
+/*   Updated: 2025/02/05 13:14:17 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,7 +20,7 @@
 class ServerConfig
 {
 public:
-    int port;
+    std::vector<int> ports;
     std::string serverName;
     std::map<int, std::string> errorPages; // 404 -> "/errors/404.html"
     std::map<std::string, std::string> locations; // URI -> root directory

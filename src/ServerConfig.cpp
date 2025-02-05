@@ -6,20 +6,27 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/05 13:01:34 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/05 13:02:00 by migumore         ###   ########.fr       */
+/*   Updated: 2025/02/05 13:17:02 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <ServerConfig.hpp>
 #include <iostream>
 
-ServerConfig::ServerConfig() : port(0), autoIndex(false), maxBodySize(1048576), clientTimeout(30) {}
+ServerConfig::ServerConfig() : autoIndex(false), maxBodySize(1048576), clientTimeout(30) {
+    ports.clear(); // Ensure ports vector is empty initially
+}
 
 ServerConfig::~ServerConfig() {}
 
 void ServerConfig::printConfig() const {
     std::cout << "Server Name: " << serverName << std::endl;
-    std::cout << "Port: " << port << std::endl;
+    std::cout << "Ports: ";
+	for (size_t i = 0; i < ports.size(); i++) {
+		std::cout << ports[i] << " ";
+	}
+	std::cout << std::endl;
+
 
     std::cout << "Error Pages:" << std::endl;
     for (std::map<int, std::string>::const_iterator it = errorPages.begin(); it != errorPages.end(); ++it) {

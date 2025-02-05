@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/05 13:00:30 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/05 13:02:08 by migumore         ###   ########.fr       */
+/*   Updated: 2025/02/05 13:17:55 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,12 +32,15 @@ std::vector<ServerConfig> ConfigParser::parseConfigFile(const std::string &filen
         if (!(lineStream >> key)) continue; // Skip empty lines
 
         if (key == "server") {
-            if (currentConfig.port != 0) { // If a server was already parsed, store it
-                servers.push_back(currentConfig);
-                currentConfig = ServerConfig(); // Reset for a new server block
-            }
-        } else if (key == "listen") {
-            lineStream >> currentConfig.port;
+			if (!currentConfig.ports.empty()) { // If ports exist, store the current server config
+				servers.push_back(currentConfig);
+				currentConfig = ServerConfig(); // Reset for a new server block
+			}
+		} else if (key == "listen") {
+			int port;
+			while (lineStream >> port) {
+				currentConfig.ports.push_back(port);
+			}
         } else if (key == "server_name") {
             lineStream >> currentConfig.serverName;
         } else if (key == "error_page") {
