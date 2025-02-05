@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/05 12:59:38 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/05 13:48:31 by migumore         ###   ########.fr       */
+/*   Updated: 2025/02/05 15:55:29 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,7 +19,7 @@
 
 class ServerConfig
 {
-public:
+private:
     std::vector<int> ports;
     std::string serverName;
     std::map<int, std::string> errorPages;
@@ -38,6 +38,7 @@ public:
     std::vector<std::string> denyList;
     std::map<std::string, std::string> mimeTypes;
 
+public:
     ServerConfig();
     ~ServerConfig();
     void printConfig() const;
