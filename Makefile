@@ -18,12 +18,14 @@ CC 			=	c++
 CFLAGS		=	-Wall -Werror -Wextra -std=c++98 -I include
 MANDATORY 	=	src/main.cpp \
 				src/HttpRequest.cpp \
-				src/HttpParser.cpp
+				src/HttpParser.cpp \
+				src/ServerConfig.cpp \
+				src/ConfigParser.cpp
 SRC 		=	$(MANDATORY)
 OBJS_DIR	=	objs/
 OBJS		=	$(SRC:%.cpp=$(OBJS_DIR)%.o)
 
-NAME 		=	webserver
+NAME 		=	webserv
 
 all: $(NAME)
 
