@@ -81,6 +81,10 @@ public:
 	void addMimeType(const std::string &extension, const std::string &mimeType);
 
 	void printConfig() const;
+
+	void handleRequest(int clientSocket, const std::string &request) const;
+	void sendResponse(int clientSocket, const std::string &status, const std::string &contentType, const std::string &body) const;
+
 };
 
 #endif // SERVERCONFIG_HPP
