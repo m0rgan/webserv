@@ -19,8 +19,10 @@ CFLAGS		=	-Wall -Werror -Wextra -std=c++98 -I include
 MANDATORY 	=	src/main.cpp \
 				src/ServerConfig.cpp \
 				src/ConfigParser.cpp \
-				# src/HttpRequest.cpp \
-				# src/HttpParser.cpp
+				src/SignalHandler.cpp \
+				src/Server.cpp \
+				src/HttpParser.cpp \
+				# src/HttpRequest.cpp
 SRC 		=	$(MANDATORY)
 OBJS_DIR	=	objs/
 OBJS		=	$(SRC:%.cpp=$(OBJS_DIR)%.o)
@@ -36,7 +38,11 @@ $(OBJS_DIR)%.o: %.cpp
 $(NAME): $(OBJS)
 	@echo "$(YELLOW)$(BOLD)$(UNDERLINE) ****/compiling $(NAME)\****$(RESET)"
 	@$(CC) $(CFLAGS) -o $(NAME) $(OBJS)
+ # -OFast -funroll-loops -finline-functions
 	@echo "$(GREEN)$(BOLD)$(REVERSE) ****\\\$(NAME) compiled!/****$(RESET)"
+
+#siege:
+#	siege -c 10 -t 1M http://localhost:8080
 
 clean:
 	@rm -rf $(OBJS)

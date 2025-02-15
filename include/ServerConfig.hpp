@@ -21,7 +21,7 @@ class ServerConfig
 {
 private:
 	std::vector<int> ports;
-	std::string serverName;
+	std::string _name;
 	std::map<int, std::string> errorPages;
 	std::map<std::string, std::string> locations;
 	std::map<std::string, std::vector<std::string> > methods;
@@ -45,7 +45,7 @@ public:
 	~ServerConfig();									// Destructor
 
 	const std::vector<int> &getPorts() const;
-	const std::string &getServerName() const;
+	const std::string &getName() const;
 	const std::map<int, std::string> &getErrorPages() const;
 	const std::map<std::string, std::string> &getLocations() const;
 	const std::map<std::string, std::vector<std::string> > &getMethods() const;
@@ -81,9 +81,6 @@ public:
 	void addMimeType(const std::string &extension, const std::string &mimeType);
 
 	void printConfig() const;
-
-	void handleRequest(int clientSocket, const std::string &request) const;
-	void sendResponse(int clientSocket, const std::string &status, const std::string &contentType, const std::string &body) const;
 
 };
 

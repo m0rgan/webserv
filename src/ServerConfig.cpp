@@ -14,8 +14,7 @@
 #include <iostream>
 
 #include <sys/socket.h>
-#include <sstream>
-#include <fstream>
+
 
 ServerConfig::ServerConfig() : autoIndex(false), maxBodySize(1048576), clientTimeout(30)
 {
@@ -32,7 +31,7 @@ ServerConfig &ServerConfig::operator=(const ServerConfig &other)
 	if (this != &other)
 	{
 		ports = other.ports;
-		serverName = other.serverName;
+		_name = other._name;
 		errorPages = other.errorPages;
 		locations = other.locations;
 		methods = other.methods;
@@ -55,7 +54,7 @@ ServerConfig &ServerConfig::operator=(const ServerConfig &other)
 ServerConfig::~ServerConfig() {}
 
 const std::vector<int> &ServerConfig::getPorts() const { return ports; }
-const std::string &ServerConfig::getServerName() const { return serverName; }
+const std::string &ServerConfig::getName() const { return _name; }
 const std::map<int, std::string> &ServerConfig::getErrorPages() const { return errorPages; }
 const std::map<std::string, std::string> &ServerConfig::getLocations() const { return locations; }
 const std::map<std::string, std::vector<std::string> > &ServerConfig::getMethods() const { return methods; }
@@ -73,7 +72,7 @@ const std::vector<std::string> &ServerConfig::getDenyList() const { return denyL
 const std::map<std::string, std::string> &ServerConfig::getMimeTypes() const { return mimeTypes; }
 
 void ServerConfig::addPort(int port) { ports.push_back(port); }
-void ServerConfig::setServerName(const std::string &name) { serverName = name; }
+void ServerConfig::setServerName(const std::string &name) { _name = name; }
 void ServerConfig::addErrorPage(int errorCode, const std::string &pagePath) { errorPages[errorCode] = pagePath; }
 void ServerConfig::addLocation(const std::string &uri, const std::string &path) { locations[uri] = path; }
 void ServerConfig::addMethod(const std::string &uri, const std::string &method) { methods[uri].push_back(method); }
@@ -92,7 +91,7 @@ void ServerConfig::addMimeType(const std::string &extension, const std::string &
 
 void ServerConfig::printConfig() const
 {
-	std::cout << "· Server Name: " << serverName << std::endl;
+	std::cout << "· Server Name: " << _name << std::endl;
 	std::cout << "· Ports: ";
 	for (size_t i = 0; i < ports.size(); i++)
 	{
@@ -129,45 +128,4 @@ void ServerConfig::printConfig() const
 	{
 		std::cout << "  " << it->first << " -> " << it->second << std::endl;
 	}
-}
-
-void ServerConfig::sendResponse(int clientSocket, const std::string &status, const std::string &contentType, const std::string &body) const
-{
-	std::ostringstream response; //no idea if this is compliant
-	response << "HTTP/1.1 " << status << "\r\n";
-	response << "Content-Type: " << contentType << "\r\n";
-	response << "Content-Length: " << body.size() << "\r\n";
-	response << "Connection: close\r\n";
-	response << "\r\n";
-	response << body;
-
-	std::string responseStr = response.str();
-	send(clientSocket, responseStr.c_str(), responseStr.size(), 0);
-
-std::cout << "Sent response: " << responseStr << std::endl;
-}
-
-void ServerConfig::handleRequest(int clientSocket, const std::string &request) const
-{
-	std::istringstream requestStream(request);
-	std::string method;
-	std::string path;
-	requestStream >> method >> path;
-
-	if (method == "GET")
-	{
-		if (path == "/")
-			path = "/index.html"; // example of static ?? get from configFile??
-		std::ifstream file("." + path);
-		if (file)
-		{
-			std::stringstream buffer;
-			buffer << file.rdbuf();
-			sendResponse(clientSocket, "200 OK", "text/html", buffer.str());
-		}
-		else
-			sendResponse(clientSocket, "404 Not Found", "text/plain", "404 Not Found");
-	}
-	else // need POST DELETE and method not supported
-		sendResponse(clientSocket, "405 Method Not Allowed", "text/plain", "405 Method Not Allowed");
 }
