@@ -26,6 +26,12 @@
 #include <fstream> //istringstream
 #include <map> //map
 
+
+struct ClientState
+{
+    std::string response;
+    size_t bytesSent;
+};
 class Server
 {
 	private:
@@ -33,6 +39,7 @@ class Server
 		int						_nfds;
 		struct protoent			*_proto;
 		ServerConfig			currentConfig;
+		std::map<int, ClientState> clientStates; // Map of client socket to ClientState
 		std::map<int, Client*>	_clients;
 
 		int		createSocket();
@@ -49,8 +56,10 @@ class Server
 		void	handleGET(int clientSocket, const std::string &path);
 		void	handlePOST(int clientSocket, const std::string &path, const std::string &body);
 		void	handleDELETE(int clientSocket, const std::string &path);
-		void	sendResponse(int clientSocket, const std::string &status, const std::string &contentType, const std::string &body) const;
+		void	sendResponse(int clientSocket, const std::string &status, const std::string &contentType, const std::string &body);
 
+		void writeClient(int index);
+		std::string getMimeType(const std::string &extension) const; // maybe move?
 	public:
 		Server(void);
 		Server(Server const &src);

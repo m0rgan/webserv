@@ -82,7 +82,8 @@ void Server::loop()
 	for (;;)
 	{
 		pollCount = poll(_fds.data(), _nfds, -1);
-		if (pollCount == -1) {
+		if (pollCount == -1)
+		{
 			perror("poll");
 			break;
 		}
@@ -278,10 +279,11 @@ void Server::cleanupSockets()
 		close(_fds[i].fd);
 }
 
-void Server::sendResponse(int clientSocket, const std::string &status, const std::string &contentType, const std::string &body) const
+void Server::sendResponse(int clientSocket, const std::string &status, const std::string &contentType, const std::string &body)
 {
-	std::ostringstream response; //no idea if this is compliant
-	std::string responseStr;
+	std::ostringstream	response; //no idea if this is compliant
+	std::string			responseStr;
+	ssize_t				bytesSent;
 
 	response << "HTTP/1.1 " << status << "\r\n";
 	response << "Content-Type: " << contentType << "\r\n";
@@ -291,51 +293,84 @@ void Server::sendResponse(int clientSocket, const std::string &status, const std
 	response << body;
 
 	responseStr = response.str();
-	send(clientSocket, responseStr.c_str(), responseStr.size(), 0);
+	std::cout << "Constructed response: " << responseStr << std::endl; // Debug output
+	ssize_t totalBytesSent = 0;
+	ssize_t bytesToSend = responseStr.size();
+	const char *responseData = responseStr.c_str();
 
-std::cout << "Sent response: " << responseStr << std::endl;
+	while (totalBytesSent < bytesToSend)
+	{
+		bytesSent = send(clientSocket, responseData + totalBytesSent, bytesToSend - totalBytesSent, 0);
+		if (bytesSent == -1)
+		{
+			perror("send");
+			break;
+		}
+		totalBytesSent += bytesSent;
+	}
+	std::cout << "Sent " << totalBytesSent << " bytes to client." << std::endl;
 }
 
+std::string Server::getMimeType(const std::string &extension) const //should this be a member fnc?
+{
+	static std::map<std::string, std::string> mimeTypes;
+	if (mimeTypes.empty()) {
+		mimeTypes[".html"] = "text/html";
+		mimeTypes[".css"] = "text/css";
+		mimeTypes[".js"] = "application/javascript";
+		mimeTypes[".png"] = "image/png";
+		mimeTypes[".jpg"] = "image/jpeg";
+		mimeTypes[".jpeg"] = "image/jpeg";
+		mimeTypes[".gif"] = "image/gif";
+		mimeTypes[".svg"] = "image/svg+xml";
+		mimeTypes[".ico"] = "image/x-icon";
+		// Add more MIME types as needed
+	}
+
+	std::map<std::string, std::string>::const_iterator it = mimeTypes.find(extension);
+	if (it != mimeTypes.end())
+		return (it->second);
+	return ("application/octet-stream");
+}
 
 void Server::handleGET(int clientSocket, const std::string &path)
 {
-	const std::string &root = currentConfig.getRoot();
-// Debug: Print the file path being accessed
-std::cout << "path: " << path << " root:" << root << std::endl;
-	std::string filePath = root + path;
-	if (filePath.back() == '/') filePath += "index.html";
-// Debug: Print the file path being accessed
-std::cout << "Trying to access file: " << filePath << std::endl;
+	const std::string &root = currentConfig.getRoot(); //delete const?
+	std::string filePath;
+
+	filePath = root + path;
+	if (filePath.back() == '/')
+		filePath += "index.html";
 	std::ifstream file(filePath, std::ios::binary);
 	if (!file)
 	{
 		sendResponse(clientSocket, "404 Not Found", "text/plain", "404 Not Found");
 		return;
 	}
-
 	std::stringstream buffer;
-	buffer << file.rdbuf(); // Read file contents
+	buffer << file.rdbuf();
+	std::string body = buffer.str();
+	std::cout << "File content size: " << body.size() << std::endl;
 
-	// // Get the file extension
-	// std::string extension;
-	// size_t dotPos = filePath.find_last_of('.');
-	// if (dotPos != std::string::npos) {
-	// 	extension = filePath.substr(dotPos);
-	// }
+	std::string fileExtension;
+	size_t dotPos = filePath.find_last_of('.');
+	if (dotPos != std::string::npos)
+		fileExtension = filePath.substr(dotPos);
 
 	// // Get the MIME type based on the file extension
-	// std::string mimeType = MimeTypes::getMimeType(extension);
-	sendResponse(clientSocket, "200 OK", "text/html", buffer.str());
+	std::string mimeType = getMimeType(fileExtension);
+	sendResponse(clientSocket, "200 OK", "text/html", body);
 }
 
 void Server::handlePOST(int clientSocket, const std::string &path, const std::string &body)
 {
-	if (path == "/submit") {
+	if (path == "/submit")
+	{
 		std::cout << "Received POST request with body: " << body << std::endl;
 		sendResponse(clientSocket, "200 OK", "text/plain", "Data received successfully");
-	} else {
-		sendResponse(clientSocket, "404 Not Found", "text/plain", "404 Not Found");
 	}
+	else
+		sendResponse(clientSocket, "404 Not Found", "text/plain", "404 Not Found");
 }
 
 void Server::handleDELETE(int clientSocket, const std::string &path)
