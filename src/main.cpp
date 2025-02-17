@@ -32,11 +32,10 @@ int main(int argc, char *argv[])
 	//exceptions from configFile and exit??
 
 	const ServerConfig &firstServer = configFile.getServers()[0];
-
 	std::cout << "Parsed configuration file successfully." << std::endl;
 	std::cout << "Server name: " << firstServer.getName() << std::endl;
 
-	Server webserv;
+	Server webserv(firstServer);
 	webserv.sockets(firstServer.getPorts());
 	webserv.loop();
 	

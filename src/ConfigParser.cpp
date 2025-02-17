@@ -25,9 +25,7 @@ ConfigParser::ConfigParser(const ConfigParser &other)
 ConfigParser &ConfigParser::operator=(const ConfigParser &other)
 {
 	if (this != &other)
-	{
 		servers = other.servers;
-	}
 	return *this;
 }
 
@@ -37,6 +35,8 @@ const std::vector<ServerConfig> &ConfigParser::getServers() const
 {
 	return servers;
 }
+
+// only add unique host+port pairs???
 
 std::vector<ServerConfig> ConfigParser::parseConfigFile(const std::string &filename)
 {
@@ -55,6 +55,7 @@ std::vector<ServerConfig> ConfigParser::parseConfigFile(const std::string &filen
 
 	while (std::getline(file, line))
 	{
+		line = ignoreComments(line);
 		std::istringstream lineStream(line);
 		std::string key;
 
@@ -73,15 +74,20 @@ std::vector<ServerConfig> ConfigParser::parseConfigFile(const std::string &filen
 		{
 			int port;
 			while (lineStream >> port)
-			{
 				currentConfig.addPort(port);
-			}
 		}
 		else if (key == "server_name")
 		{
 			std::string serverName;
 			lineStream >> serverName;
 			currentConfig.setServerName(serverName);
+		}
+		else if (key == "root")
+		{
+            std::string root;
+            lineStream >> root;
+            currentConfig.setRoot(root);
+			std::cout << "root at config parser: " << currentConfig.getRoot() << std::endl;
 		}
 		else if (key == "error_page")
 		{
@@ -171,4 +177,14 @@ std::vector<ServerConfig> ConfigParser::parseConfigFile(const std::string &filen
 
 	parsedServers.push_back(currentConfig); // Store last parsed server block
 	return parsedServers;
+}
+
+std::string &ConfigParser::ignoreComments(std::string &line)
+{
+    std::istringstream input(line);
+    std::getline(input, line, ';');
+    input.clear();
+    input.str(line);
+    std::getline(input, line, '#');
+    return (line);
 }

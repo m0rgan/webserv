@@ -33,6 +33,7 @@ public:
 	const std::vector<ServerConfig> &getServers() const;
 	
 	std::vector<ServerConfig> parseConfigFile(const std::string &filename);
+	std::string &ignoreComments(std::string &line);
 };
 
 #endif // CONFIGPARSER_HPP

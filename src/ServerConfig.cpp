@@ -32,6 +32,7 @@ ServerConfig &ServerConfig::operator=(const ServerConfig &other)
 	{
 		ports = other.ports;
 		_name = other._name;
+		_root = other._root;
 		errorPages = other.errorPages;
 		locations = other.locations;
 		methods = other.methods;
@@ -55,6 +56,7 @@ ServerConfig::~ServerConfig() {}
 
 const std::vector<int> &ServerConfig::getPorts() const { return ports; }
 const std::string &ServerConfig::getName() const { return _name; }
+const std::string &ServerConfig::getRoot() const { return _root; }
 const std::map<int, std::string> &ServerConfig::getErrorPages() const { return errorPages; }
 const std::map<std::string, std::string> &ServerConfig::getLocations() const { return locations; }
 const std::map<std::string, std::vector<std::string> > &ServerConfig::getMethods() const { return methods; }
@@ -73,6 +75,7 @@ const std::map<std::string, std::string> &ServerConfig::getMimeTypes() const { r
 
 void ServerConfig::addPort(int port) { ports.push_back(port); }
 void ServerConfig::setServerName(const std::string &name) { _name = name; }
+void ServerConfig::setRoot(const std::string &root) { this->_root = root; }
 void ServerConfig::addErrorPage(int errorCode, const std::string &pagePath) { errorPages[errorCode] = pagePath; }
 void ServerConfig::addLocation(const std::string &uri, const std::string &path) { locations[uri] = path; }
 void ServerConfig::addMethod(const std::string &uri, const std::string &method) { methods[uri].push_back(method); }

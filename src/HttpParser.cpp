@@ -12,8 +12,11 @@
 
 #include <HttpParser.hpp>
 
+#include <iostream>
+
 HttpRequest HttpParser::parseRequest(const std::string &rawRequest)
 {
+std::cout << "Raw HTTP Request:\n" << rawRequest << std::endl;
 	HttpRequest request;
 	std::istringstream requestStream(rawRequest);
 	std::string line;

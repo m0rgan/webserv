@@ -23,7 +23,16 @@ Server::Server() : _nfds(0)
 	}
 }
 
-Server::Server(Server const &src)
+Server::Server(const ServerConfig &config) : _nfds(0), currentConfig(config)
+{
+	_proto = getprotobyname("tcp");
+	if (!_proto)
+	{
+		perror("getprotobyname");
+	}
+}
+
+Server::Server(Server const &src) : currentConfig(src.currentConfig)
 {
 	this->_nfds = src._nfds;
 	return;
@@ -32,7 +41,9 @@ Server::Server(Server const &src)
 Server &Server::operator=(Server const &rhs)
 {
 	if (this == &rhs)
-		return (*this); // revise and fix
+		return (*this);
+	this->_nfds = rhs._nfds;
+	this->currentConfig = rhs.currentConfig;
 	return (*this);
 }
 
@@ -57,6 +68,11 @@ int Server::sockets(const std::vector<int>& ports)
 	return (0);
 }
 
+
+// while (!g_sigint) // to give program time to clean up
+// {
+// 	if ((poll(_pollFds.data(), _pollFds.size(), -1)) <= 0) continue ;
+// The loop continues running until a global interrupt signal (g_sigint) is set.
 void Server::loop()
 {
 	int	pollCount;
@@ -87,6 +103,11 @@ int Server::createSocket()
 	}
 	return (fd);
 }
+
+//  Handling Errors and Disconnections
+// if ((_pollFds[i].revents & POLLERR) || _pollFds[i].revents & POLLHUP)
+//     _pruneSocket(sd, sS);
+// If a socket has encountered an error (POLLERR) or has been closed by the client (POLLHUP), the function _pruneSocket(sd, sS) is called to handle cleanup.
 
 int Server::configureSocket(int serverSocket)
 {
@@ -195,8 +216,8 @@ int Server::existingClient(int index)
 
 int Server::readRequest(int index, std::string &request)
 {
-	char buffer[1024];
-	int bytesRead;
+	char	buffer[1024];
+	int		bytesRead;
 
 	for (;;)
 	{
@@ -225,19 +246,19 @@ int Server::readRequest(int index, std::string &request)
 
 void Server::handleRequest(int clientSocket, const std::string &requestHTTP)
 {
-	HttpParser parser;
-	HttpRequest request = parser.parseRequest(requestHTTP);
+	HttpParser	parser;
+	HttpRequest	request;
 
+	request = parser.parseRequest(requestHTTP);
 	// Handle different HTTP methods
-	if (request.method == "GET") {
+	if (request.method == "GET")
 		handleGET(clientSocket, request.uri);
-	} else if (request.method == "POST") {
+	else if (request.method == "POST")
 		handlePOST(clientSocket, request.uri, request.body);
-	} else if (request.method == "DELETE") {
+	else if (request.method == "DELETE")
 		handleDELETE(clientSocket, request.uri);
-	} else {
+	else
 		sendResponse(clientSocket, "405 Method Not Allowed", "text/plain", "405 Method Not Allowed");
-	}
 }
 
 void Server::closeClient(int index)
@@ -278,17 +299,32 @@ std::cout << "Sent response: " << responseStr << std::endl;
 
 void Server::handleGET(int clientSocket, const std::string &path)
 {
-	std::string filePath = "." + path;
-	if (filePath == "./") filePath = "./index.html"; // Default page
-
+	const std::string &root = currentConfig.getRoot();
+// Debug: Print the file path being accessed
+std::cout << "path: " << path << " root:" << root << std::endl;
+	std::string filePath = root + path;
+	if (filePath.back() == '/') filePath += "index.html";
+// Debug: Print the file path being accessed
+std::cout << "Trying to access file: " << filePath << std::endl;
 	std::ifstream file(filePath, std::ios::binary);
-	if (!file) {
+	if (!file)
+	{
 		sendResponse(clientSocket, "404 Not Found", "text/plain", "404 Not Found");
 		return;
 	}
 
 	std::stringstream buffer;
 	buffer << file.rdbuf(); // Read file contents
+
+	// // Get the file extension
+	// std::string extension;
+	// size_t dotPos = filePath.find_last_of('.');
+	// if (dotPos != std::string::npos) {
+	// 	extension = filePath.substr(dotPos);
+	// }
+
+	// // Get the MIME type based on the file extension
+	// std::string mimeType = MimeTypes::getMimeType(extension);
 	sendResponse(clientSocket, "200 OK", "text/html", buffer.str());
 }
 

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iPhone Showcase</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background-color: #f5f5f7;
+      color: #333;
+      padding: 20px;
+    }
+	
+	h1 {
+		font-size: 2rem;
+		text-align: left;
+		margin-bottom: 20px;
+		color: #000;
+		padding-left: 100px;
+    }
+	
+	h2 {
+	  font-size: 1.2rem;
+	  text-align: left;
+	  margin-bottom: 40px;
+	  color: #000;
+	  padding-left: 100px;
+	}
+
+	h2 span {
+	  color: #ff2d55;
+	  font-weight: bold;
+	}
+
+    .products {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .product {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      max-width: 300px;
+      flex: 1;
+      text-align: center;
+      transition: transform 0.3s;
+    }
+
+    .product:hover {
+      transform: translateY(-5px);
+    }
+
+    .product img {
+      width: 100%;
+	  max-width: auto;
+      height: 431px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .product .title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .product .new {
+      color: #ff2d55;
+	  text-align: left;
+      font-weight: bold;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
+    .product .price {
+      font-size: 1rem;
+      color: #888;
+      margin-top: 10px;
+    }
+
+    .product .buy-btn {
+      display: inline-block;
+      background: #007bff;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 1rem;
+      margin-top: 15px;
+      transition: background 0.3s;
+    }
+
+    .product .buy-btn:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Shop iPhone</h1>
+  <h2><span>All models.</span> Take your pick.</h2>
+  <div class="products">
+    <div class="product">
+      <p class="new">NEW</p>
+      <p class="title">iPhone 16 Pro & iPhone 16 Pro Max</p>
+      <img src="/16.png" alt="iPhone 16 Pro & Pro Max">
+      <p class="price">From FREE no credit card required</p>
+      <a href="#" class="buy-btn">Get yours now</a>
+    </div>
+    <div class="product">
+      <p class="new">NEW</p>
+      <p class="title">iPhone 16 &        iPhone 16 Plus</p>
+      <img src="/15.png" alt="iPhone 16 & Plus">
+      <p class="price">From FREE no credit card required</p>
+      <a href="#" class="buy-btn">Get yours now</a>
+    </div>
+    <div class="product">
+	  <p class="new">NEW</p>
+      <p class="title">iPhone 15 &        iPhone 15 Plus</p>
+      <img src="/14.png" alt="iPhone 15 & Plus">
+      <p class="price">From FREE no credit card required</p>
+      <a href="#" class="buy-btn">Get yours now</a>
+    </div>
+  </div>
+
+</body>
+</html>

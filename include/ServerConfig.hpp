@@ -22,6 +22,7 @@ class ServerConfig
 private:
 	std::vector<int> ports;
 	std::string _name;
+	std::string _root;
 	std::map<int, std::string> errorPages;
 	std::map<std::string, std::string> locations;
 	std::map<std::string, std::vector<std::string> > methods;
@@ -46,6 +47,7 @@ public:
 
 	const std::vector<int> &getPorts() const;
 	const std::string &getName() const;
+	const std::string &getRoot() const;
 	const std::map<int, std::string> &getErrorPages() const;
 	const std::map<std::string, std::string> &getLocations() const;
 	const std::map<std::string, std::vector<std::string> > &getMethods() const;
@@ -64,6 +66,7 @@ public:
 
 	void addPort(int port);
 	void setServerName(const std::string &name);
+	void setRoot(const std::string &root);
 	void addErrorPage(int errorCode, const std::string &pagePath);
 	void addLocation(const std::string &uri, const std::string &path);
 	void addMethod(const std::string &uri, const std::string &method);

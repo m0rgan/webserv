@@ -41,3 +41,17 @@ void SignalHandler::handleUrgentData(int sig)
 }
 
 int SignalHandler::clientSocket = -1; // defines clientSocket to independent object not tied to class
+
+
+// static void handleSignals() {
+// 	// pipe errors need to ignored, can happen with connections that get closed
+// 	std::signal(SIGPIPE, SIG_IGN);
+
+// 	// graceful exit of kill signals
+// 	std::signal(SIGINT, MainProcess::kill);
+// 	std::signal(SIGHUP, MainProcess::kill);
+// 	std::signal(SIGQUIT, MainProcess::kill);
+// 	std::signal(SIGTERM, MainProcess::kill);
+// }
+
+// should we do main process to be able to kill it?

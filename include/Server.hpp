@@ -16,6 +16,7 @@
 #include <iostream>
 
 #include <SignalHandler.hpp>
+#include <ServerConfig.hpp>
 #include <HttpParser.hpp>
 #include <Client.hpp>
 #include <netdb.h> //getprotobyname
@@ -28,11 +29,11 @@
 class Server
 {
 	private:
-		std::vector<pollfd> _fds; //does vector include all possible fds ? is there a maximum?
-		int					_nfds;
-		struct protoent		*_proto;
-
-		std::map<int, Client*> _clients;
+		std::vector<pollfd>		_fds; //does vector include all possible fds ? is there a maximum?
+		int						_nfds;
+		struct protoent			*_proto;
+		ServerConfig			currentConfig;
+		std::map<int, Client*>	_clients;
 
 		int		createSocket();
 		int		configureSocket(int serverSocket);
@@ -56,6 +57,7 @@ class Server
 		Server &operator=(Server const &rhs);
 		~Server(void);
 
+		Server(const ServerConfig &config);
 		int		sockets(const std::vector<int> &ports);
 		void	loop();
 };
