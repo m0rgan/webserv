@@ -32,7 +32,7 @@ Server::Server(const ServerConfig &config) : _nfds(0), currentConfig(config)
 	}
 }
 
-Server::Server(Server const &src) : currentConfig(src.currentConfig)
+Server::Server(Server const &src) : currentConfig(src.currentConfig)  //must finish 
 {
 	this->_nfds = src._nfds;
 	return;
@@ -66,30 +66,6 @@ int Server::sockets(const std::vector<int>& ports)
 		addToPoll(serverSocket);
 	}
 	return (0);
-}
-
-
-// while (!g_sigint) // to give program time to clean up
-// {
-// 	if ((poll(_pollFds.data(), _pollFds.size(), -1)) <= 0) continue ;
-// The loop continues running until a global interrupt signal (g_sigint) is set.
-void Server::loop()
-{
-	int	pollCount;
-
-	std::cout << "Server setup complete. Waiting for connections..." << std::endl;
-	signal(SIGURG, SignalHandler::handleUrgentData);
-	for (;;)
-	{
-		pollCount = poll(_fds.data(), _nfds, -1);
-		if (pollCount == -1)
-		{
-			perror("poll");
-			break;
-		}
-		handleEvents();
-	}
-	cleanupSockets();
 }
 
 int Server::createSocket()
@@ -157,6 +133,30 @@ void Server::addToPoll(int serverSocket)
 	_nfds++;
 }
 
+
+// while (!g_sigint) // to give program time to clean up
+// {
+// 	if ((poll(_pollFds.data(), _pollFds.size(), -1)) <= 0) continue ;
+// The loop continues running until a global interrupt signal (g_sigint) is set.
+void Server::loop()
+{
+	int	pollCount;
+
+	std::cout << "Server setup complete. Waiting for connections..." << std::endl;
+	signal(SIGURG, SignalHandler::handleUrgentData);
+	for (;;)
+	{
+		pollCount = poll(_fds.data(), _nfds, -1);
+		if (pollCount == -1)
+		{
+			perror("poll");
+			break;
+		}
+		handleEvents();
+	}
+	cleanupSockets();
+}
+
 void Server::handleEvents()
 {
 	int	i;
@@ -189,85 +189,49 @@ int Server::newClient()
 	// int clientFlags = fcntl(clientSocket, F_GETFL, 0);
 				// fcntl(clientSocket, F_SETFL, clientFlags | O_NONBLOCK);
 	fcntl(clientSocket, F_SETFL, O_NONBLOCK);
-	pollfd clientPollfd = {clientSocket, POLLIN | POLLOUT, 0};
+	pollfd clientPollfd = {clientSocket, POLLIN | POLLOUT, 0}; //remove POLLOUT?
 	_fds.push_back(clientPollfd);
 	_nfds++;
 
-	// _clients[clientSocket] = new Client(clientSocket);
+	_clients[clientSocket] = new Client(clientSocket, currentConfig);
 
 	std::cout << "Accepted new connection from client." << std::endl;
 	return (0);
 }
 
-// int clientSocket = _fds[index].fd;
-// Client* client = _clients[clientSocket];
-// client->readRequest();
-// client->processRequest();
-// client->sendResponse();
 int Server::existingClient(int index)
 {
-	std::string request;
-	if (readRequest(index, request) != 0)
-		return (1);
-	std::cout << "Received request: " << request << std::endl;
-	handleRequest(_fds[index].fd, request);
-	// cookie and multiple cgi management.. do bonus or skip?
-	return (0);
-}
+	int clientSocket = _fds[index].fd;
+	Client* client = _clients[clientSocket];
 
-int Server::readRequest(int index, std::string &request)
-{
-	char	buffer[1024];
-	int		bytesRead;
-
-	for (;;)
+	try
 	{
-		bytesRead = recv(_fds[index].fd, buffer, sizeof(buffer) - 1, 0);
-		if (bytesRead > 0)
-		{
-			buffer[bytesRead] = '\0';
-			request.append(buffer, bytesRead);
-			if (request.find("\r\n\r\n") != std::string::npos)
-				break;
-		}
-		else if (bytesRead == 0) // connection closed by client
-		{
-			closeClient(index);
-			return (1);
-		}
-		else // recv returned -1
-		{
-			perror("recv");
-			closeClient(index);
-			return (1);
-		}
+		client->readRequest();
+		client->handleRequest();
+		if (client->hasPendingData())
+			client->writeResponse();
+		// cookie and multiple cgi management.. do bonus or skip?
+	}
+	catch (const std::exception &e)
+	{
+		closeClient(index);
+		return (1);
 	}
 	return (0);
 }
 
-void Server::handleRequest(int clientSocket, const std::string &requestHTTP)
-{
-	HttpParser	parser;
-	HttpRequest	request;
-
-	request = parser.parseRequest(requestHTTP);
-	// Handle different HTTP methods
-	if (request.method == "GET")
-		handleGET(clientSocket, request.uri);
-	else if (request.method == "POST")
-		handlePOST(clientSocket, request.uri, request.body);
-	else if (request.method == "DELETE")
-		handleDELETE(clientSocket, request.uri);
-	else
-		sendResponse(clientSocket, "405 Method Not Allowed", "text/plain", "405 Method Not Allowed");
-}
-
 void Server::closeClient(int index)
 {
-	close(_fds[index].fd);
+	int clientSocket = _fds[index].fd;
+
+	delete _clients[clientSocket];
+	_clients.erase(clientSocket);
+
+	close(clientSocket);
 	_fds[index] = _fds[_nfds - 1];
 	_fds.pop_back();
 	_nfds--;
+
 	std::cout << "Closed connection with client." << std::endl;
 }
 
@@ -279,107 +243,24 @@ void Server::cleanupSockets()
 		close(_fds[i].fd);
 }
 
-void Server::sendResponse(int clientSocket, const std::string &status, const std::string &contentType, const std::string &body)
-{
-	std::ostringstream	response; //no idea if this is compliant
-	std::string			responseStr;
-	ssize_t				bytesSent;
 
-	response << "HTTP/1.1 " << status << "\r\n";
-	response << "Content-Type: " << contentType << "\r\n";
-	response << "Content-Length: " << body.size() << "\r\n";
-	response << "Connection: close\r\n";
-	response << "\r\n";
-	response << body;
+// Breakdown of Nginx’s Request Flow
+// Here’s a simplified version of how Nginx handles a request:
 
-	responseStr = response.str();
-	std::cout << "Constructed response: " << responseStr << std::endl; // Debug output
-	ssize_t totalBytesSent = 0;
-	ssize_t bytesToSend = responseStr.size();
-	const char *responseData = responseStr.c_str();
+// Client connects → A socket is accepted and an ngx_connection_t is created.
+// Event Loop Detects POLLIN → Nginx reads the request but does not process it inside the read handler.
+// Request Parsing → The HTTP request is parsed and stored in an ngx_http_request_t structure.
+// Request Processing
+// If it’s a static file request, it locates the file and prepares a response.
+// If it’s a proxy request, it forwards the request to a backend.
+// If it’s a FastCGI request, it communicates with PHP/CGI.
+// The response is not sent immediately.
+// Event Loop Detects POLLOUT → Only when the client is ready to receive data, Nginx sends the response.
+// Response is Sent in Chunks → Nginx writes the response using a write event handler.
 
-	while (totalBytesSent < bytesToSend)
-	{
-		bytesSent = send(clientSocket, responseData + totalBytesSent, bytesToSend - totalBytesSent, 0);
-		if (bytesSent == -1)
-		{
-			perror("send");
-			break;
-		}
-		totalBytesSent += bytesSent;
-	}
-	std::cout << "Sent " << totalBytesSent << " bytes to client." << std::endl;
-}
+// How Should This Apply to Your Server?
+// Your current model can be improved to be more like Nginx:
 
-std::string Server::getMimeType(const std::string &extension) const //should this be a member fnc?
-{
-	static std::map<std::string, std::string> mimeTypes;
-	if (mimeTypes.empty()) {
-		mimeTypes[".html"] = "text/html";
-		mimeTypes[".css"] = "text/css";
-		mimeTypes[".js"] = "application/javascript";
-		mimeTypes[".png"] = "image/png";
-		mimeTypes[".jpg"] = "image/jpeg";
-		mimeTypes[".jpeg"] = "image/jpeg";
-		mimeTypes[".gif"] = "image/gif";
-		mimeTypes[".svg"] = "image/svg+xml";
-		mimeTypes[".ico"] = "image/x-icon";
-		// Add more MIME types as needed
-	}
-
-	std::map<std::string, std::string>::const_iterator it = mimeTypes.find(extension);
-	if (it != mimeTypes.end())
-		return (it->second);
-	return ("application/octet-stream");
-}
-
-void Server::handleGET(int clientSocket, const std::string &path)
-{
-	const std::string &root = currentConfig.getRoot(); //delete const?
-	std::string filePath;
-
-	filePath = root + path;
-	if (filePath.back() == '/')
-		filePath += "index.html";
-	std::ifstream file(filePath, std::ios::binary);
-	if (!file)
-	{
-		sendResponse(clientSocket, "404 Not Found", "text/plain", "404 Not Found");
-		return;
-	}
-	std::stringstream buffer;
-	buffer << file.rdbuf();
-	std::string body = buffer.str();
-	std::cout << "File content size: " << body.size() << std::endl;
-
-	std::string fileExtension;
-	size_t dotPos = filePath.find_last_of('.');
-	if (dotPos != std::string::npos)
-		fileExtension = filePath.substr(dotPos);
-
-	// // Get the MIME type based on the file extension
-	std::string mimeType = getMimeType(fileExtension);
-	sendResponse(clientSocket, "200 OK", "text/html", body);
-}
-
-void Server::handlePOST(int clientSocket, const std::string &path, const std::string &body)
-{
-	if (path == "/submit")
-	{
-		std::cout << "Received POST request with body: " << body << std::endl;
-		sendResponse(clientSocket, "200 OK", "text/plain", "Data received successfully");
-	}
-	else
-		sendResponse(clientSocket, "404 Not Found", "text/plain", "404 Not Found");
-}
-
-void Server::handleDELETE(int clientSocket, const std::string &path)
-{
-	std::string filePath = "." + path;
-	
-	if (std::remove(filePath.c_str()) == 0) {
-		sendResponse(clientSocket, "200 OK", "text/plain", "File deleted successfully");
-	} else {
-		sendResponse(clientSocket, "404 Not Found", "text/plain", "File not found");
-	}
-}
+// ✅ Prepare Response First → Your Client::handleRequest() should prepare the response but not send it immediately.
+// ✅ Write Response in a Separate Step → A Client::writeResponse() function should be triggered when POLLOUT is detected.
+// ✅ Use a State Machine for Clients → Track if the client is waiting for a response or ready to send data.

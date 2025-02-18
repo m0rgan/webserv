@@ -21,6 +21,7 @@ MANDATORY 	=	src/main.cpp \
 				src/ConfigParser.cpp \
 				src/SignalHandler.cpp \
 				src/Server.cpp \
+				src/Client.cpp \
 				src/HttpParser.cpp \
 				# src/HttpRequest.cpp
 SRC 		=	$(MANDATORY)
