@@ -19,6 +19,8 @@
 #include <sstream>
 #include <vector>
 
+const std::string DEFAULT_CONFIG = "default.conf"; //check if correct
+
 class ConfigParser
 {
 private:
@@ -37,3 +39,24 @@ public:
 };
 
 #endif // CONFIGPARSER_HPP
+
+
+
+//can there be virtual hosts like these:
+
+// Use Virtual Hosts (Same Port, Different Domains)
+// If you're using the same port but want to run different web apps, use Virtual Hosts.
+
+// Example nginx.conf:
+
+// server {
+//     listen 8080;
+//     server_name app1.local;
+//     root /var/www/app1;
+// }
+
+// server {
+//     listen 8080;
+//     server_name app2.local;
+//     root /var/www/app2;
+// }

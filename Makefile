@@ -18,11 +18,13 @@ CC 			=	c++
 CFLAGS		=	-Wall -Werror -Wextra -std=c++98 -I include
 MANDATORY 	=	src/main.cpp \
 				src/ServerConfig.cpp \
+				src/ServerLauncher.cpp \
 				src/ConfigParser.cpp \
 				src/SignalHandler.cpp \
 				src/Server.cpp \
 				src/Client.cpp \
 				src/HttpParser.cpp \
+				src/Utilities.cpp \
 				# src/HttpRequest.cpp
 SRC 		=	$(MANDATORY)
 OBJS_DIR	=	objs/

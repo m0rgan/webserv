@@ -20,4 +20,16 @@ class HttpParser
 		HttpRequest parseRequest(const std::string &rawRequest);
 };
 
+//include httprequest struct in class
+//include response status code? to save last code of request?
+//make responses like a template in this class instead of inside member function in Client?
+// HTTP response status codes
+
+// HTTP response status codes indicate whether a specific HTTP request has been successfully completed. Responses are grouped in five classes:
+
+// Informational responses (100 – 199)
+// Successful responses (200 – 299)
+// Redirection messages (300 – 399)
+// Client error responses (400 – 499)
+// Server error responses (500 – 599)
 #endif // HTTPPARSER_HPP

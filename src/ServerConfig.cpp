@@ -13,9 +13,6 @@
 #include <ServerConfig.hpp>
 #include <iostream>
 
-#include <sys/socket.h>
-
-
 ServerConfig::ServerConfig() : autoIndex(false), maxBodySize(1048576), clientTimeout(30)
 {
 	ports.clear();

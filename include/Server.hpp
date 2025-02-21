@@ -35,11 +35,10 @@ struct ClientState
 class Server
 {
 	private:
-		std::vector<pollfd>		_fds; //does vector include all possible fds ? is there a maximum?
+		std::vector<pollfd>		_fds;
 		int						_nfds;
 		struct protoent			*_proto;
-		ServerConfig			currentConfig; //not being used after Client class created, fix
-		std::map<int, ClientState> clientStates; // Map of client socket to ClientState
+		ServerConfig			_currentConfig;
 		std::map<int, Client*>	_clients;
 
 		int		createSocket();
@@ -49,11 +48,9 @@ class Server
 		void	handleEvents();
 		int		newClient();
 		int		existingClient(int index);
-		int		readRequest(int index, std::string &request);
 		void	closeClient(int index);
 		void	cleanupSockets();
 
-		// void writeClient(int index);
 		
 	public:
 		Server(void);
@@ -62,6 +59,7 @@ class Server
 		~Server(void);
 
 		Server(const ServerConfig &config);
+		const ServerConfig& getConfig() const;
 		int		sockets(const std::vector<int> &ports);
 		void	loop();
 };

@@ -10,35 +10,24 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <ConfigParser.hpp>
-#include <iostream>
-
-#include <Server.hpp>
-
-#include <sys/socket.h> //socket
-#include <arpa/inet.h> //htons host to network short
-#include <unistd.h> //close
-#include <poll.h> //pollfd
+#include <ServerLauncher.hpp>
 
 int main(int argc, char *argv[])
 {
-	if (argc != 2)
-		return (std::cerr << "How to use: " << argv[0] << " <config_file>" << std::endl, (1));
-	//is the logic meant to be if config file fails then use default config or if no config file is set?
+	if (argc > 2)
+		return (std::cerr << "How to use: ./webserv <config_file>" << std::endl, (1));
+	std::string configFile = (argc == 2) ? argv[1]: DEFAULT_CONFIG;
 
-	signal(SIGPIPE, SIG_IGN); //handle clients disconnecting unexpectedly
-
-	ConfigParser configFile(argv[1]); // Automatically parses on creation
-	//exceptions from configFile and exit??
-
-	const ServerConfig &firstServer = configFile.getServers()[0];
-	std::cout << "Parsed configuration file successfully." << std::endl;
-	std::cout << "Server name: " << firstServer.getName() << std::endl;
-
-	Server webserv(firstServer);
-	webserv.sockets(firstServer.getPorts());
-	webserv.loop();
-	
+	try
+	{
+		ServerLauncher webserv(configFile);
+		webserv.launch();
+	}
+	catch (const std::exception &e)
+	{
+		std::cerr << e.what() << std::endl;
+		return (1);
+	}
 	return (0);
 }
 

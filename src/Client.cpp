@@ -60,12 +60,9 @@ void Client::readRequest() //check return values to kill process??
 				break;
 		}
 		else if (bytesRead == 0) // connection closed by client
-			throw std::runtime_error("Connection closed by client");
+			throw std::runtime_error(std::string("Connection closed by client: ") + strerror(errno));
 		else // recv returned -1
-		{
-			perror("recv");
-			throw std::runtime_error("Error reading request");
-		}
+			throw std::runtime_error(std::string("recv: error reading request: ") + strerror(errno));
 	}
 }
 
@@ -102,100 +99,63 @@ void Client::prepareResponse(const std::string &status, const std::string &conte
 
 	_responseBuffer = responseStream.str();
 	_bytesSent = 0;
-	// _readyToSend = true;
-
-	// for (size_t i = 0; i < _fds.size(); ++i)
-	// {
-	// 	if (_fds[i].fd == _clientSocket)
-	// 	{
-	// 		_fds[i].events |= POLLOUT;  // POLLOUT only when response is ready
-	// 		break;
-	// 	}
-	// }
 }
-
-void Client::prepareBinaryResponse(const std::string &status, const std::string &contentType, const std::vector<char> &body)
-{
-	std::ostringstream responseStream;
-	responseStream << "HTTP/1.1 " << status << "\r\n";
-	responseStream << "Content-Type: " << contentType << "\r\n";
-	responseStream << "Content-Length: " << body.size() << "\r\n";
-	responseStream << "Connection: keep-alive\r\n";
-	responseStream << "\r\n";
-
-	std::string headers = responseStream.str();
-	_responseBuffer = headers;
-	_responseBuffer.append(body.begin(), body.end());
-	_bytesSent = 0;
-}
-
 
 bool Client::hasPendingData() const
 {
-std::cout << "bytesSent = " << _bytesSent << ", responseBuffer.length() = " << _responseBuffer.length() << std::endl;
-	return (_bytesSent < _responseBuffer.length());
+	if (_bytesSent < 0)
+		return (true);
+	return (_bytesSent < static_cast<ssize_t>(_responseBuffer.length()));
 }
 
 
 void Client::writeResponse()
 {
-	const char *responseData = _responseBuffer.c_str() + _bytesSent;
-	ssize_t bytesToSend = _responseBuffer.length() - _bytesSent;
-	ssize_t bytesSentNow;
+	ssize_t totalBytesSent = 0;
+	ssize_t bytesJustSent;
+	ssize_t bytesToSend = _responseBuffer.size();
+	const char *responseData = _responseBuffer.c_str();
 
-	while (bytesToSend > 0)
+	while (totalBytesSent < bytesToSend)
 	{
-std::cout << "Attempting to send: bytesToSend = " << bytesToSend << std::endl;
-		bytesSentNow = send(_clientSocket, responseData, bytesToSend, 0);
-		if (bytesSentNow == -1)
+		bytesJustSent = send(_clientSocket, responseData + totalBytesSent, bytesToSend - totalBytesSent, 0);
+		// MSG_NOSIGNAL (avoid SIGPIPE crashes)
+		// MSG_OOB        0x1  /* process out-of-band data */
+		if (bytesJustSent == -1)
+			continue; // is this correct? if i cant check errno is this the only option?
+		if (bytesJustSent == 0)
 		{
-			perror("send");
-			throw std::runtime_error("Error sending response");
+			std::cerr << "Connection closed by client." << std::endl;
+			closeClient();
+			return;
 		}
-		_bytesSent += bytesSentNow;
-		bytesToSend -= bytesSentNow;
-		responseData += bytesSentNow;
-std::cout << "Sent " << bytesSentNow << " bytes (Total: " << _bytesSent << " / " << _responseBuffer.length() << ")" << std::endl;
+		totalBytesSent += bytesJustSent;
+		_bytesSent += bytesJustSent;
 	}
-
-	if (_bytesSent == _responseBuffer.length())
-	{
-std::cout << "All data sent, CLOSING CLIENT." << std::endl;
-std::cout << "Sent " << bytesSentNow << " bytes (Total: " << _bytesSent << " / " << _responseBuffer.length() << ")" << std::endl;
+	if (_bytesSent >= bytesToSend)
 		closeClient();
-	}
-}
+// 	if (_bytesSent == static_cast<ssize_t>(_responseBuffer.length()))
+// {
+//     std::cout << "[DEBUG] All data sent. Checking keep-alive..." << std::endl;
+//     if (_requestBuffer.find("Connection: keep-alive") != std::string::npos)
+//     {
+//         std::cout << "[DEBUG] Keeping connection alive for client: " << _clientSocket << std::endl;
+//     }
+//     else
+//     {
+//         std::cout << "[DEBUG] Closing client due to no keep-alive." << std::endl;
+//         closeClient();
+//     }
+// }
 
-std::string Client::getMimeType(const std::string &extension) const //should this be a member fnc?
-{
-	static std::map<std::string, std::string> mimeTypes;
-	if (mimeTypes.empty())
-	{
-		mimeTypes[".html"] = "text/html";
-		mimeTypes[".css"] = "text/css";
-		mimeTypes[".js"] = "application/javascript";
-		mimeTypes[".png"] = "image/png";
-		mimeTypes[".jpg"] = "image/jpeg";
-		mimeTypes[".jpeg"] = "image/jpeg";
-		mimeTypes[".gif"] = "image/gif";
-		mimeTypes[".svg"] = "image/svg+xml";
-		mimeTypes[".ico"] = "image/x-icon";
-		// are there other MIME types?
-	}
-	std::map<std::string, std::string>::const_iterator it = mimeTypes.find(extension);
-	if (it != mimeTypes.end())
-		return (it->second);
-	return ("application/octet-stream");
 }
 
 void Client::handleGET(const std::string &path)
 {
 	const std::string &root = _currentConfig.getRoot();
-std::cout << "path: " << path << " root:" << root << std::endl;
 	std::string filePath = root + path;
 	if (filePath.back() == '/')
 		filePath += "index.html";
-std::cout << "Trying to access file: " << filePath << std::endl;
 	std::ifstream file(filePath, std::ios::binary);
 	if (!file)
 	{
@@ -203,18 +163,17 @@ std::cout << "Trying to access file: " << filePath << std::endl;
 		return;
 	}
 
-	// std::stringstream buffer;
-	// buffer << file.rdbuf();
-	// std::string body = buffer.str();
-	// std::cout << "File content size: " << body.size() << std::endl;
-	std::vector<char> body((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-	file.close();
-	std::string extension;
+	std::stringstream buffer;
+	buffer << file.rdbuf();
+	std::string body = buffer.str();
+
+	std::string fileExtension;
 	size_t dotPos = filePath.find_last_of('.');
 	if (dotPos != std::string::npos)
-		extension = filePath.substr(dotPos);
-	std::string mimeType = getMimeType(extension);
-	prepareBinaryResponse("200 OK", mimeType, body);
+		fileExtension = filePath.substr(dotPos);
+	Utilities utils;
+	std::string mimeType = utils.getMimeType(fileExtension);
+	prepareResponse("200 OK", mimeType, body);
 }
 
 void Client::handlePOST(const std::string &path, const std::string &body)

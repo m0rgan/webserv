@@ -87,7 +87,6 @@ std::vector<ServerConfig> ConfigParser::parseConfigFile(const std::string &filen
             std::string root;
             lineStream >> root;
             currentConfig.setRoot(root);
-			std::cout << "root at config parser: " << currentConfig.getRoot() << std::endl;
 		}
 		else if (key == "error_page")
 		{

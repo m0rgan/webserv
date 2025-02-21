@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 11:42:58 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/15 11:42:58 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/02/21 16:02:41 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -35,7 +35,7 @@ void SignalHandler::handleUrgentData(int sig)
 	char	buffer[1];
 
 	(void)sig;
-	bytesRead = recv(clientSocket, buffer, sizeof(buffer), MSG_OOB);
+	bytesRead = recv(clientSocket, buffer, sizeof(buffer), MSG_OOB);// should a recv be here? revise
 	if (bytesRead > 0)
 		std::cout << "Received OOB data: " << buffer[0] << std::endl; //must handle this scenario
 }
