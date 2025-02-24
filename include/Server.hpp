@@ -35,7 +35,9 @@ struct ClientState
 class Server
 {
 	private:
-		std::vector<pollfd>		_fds;
+		std::string				_name;
+		std::vector<int>		_ports;
+		std::vector<pollfd> 	_fds;
 		int						_nfds;
 		struct protoent			*_proto;
 		ServerConfig			_currentConfig;
@@ -44,9 +46,9 @@ class Server
 		int		createSocket();
 		int		configureSocket(int serverSocket);
 		int		bindAndListen(int serverSocket, int port);
-		void	addToPoll(int serverSocket);
-		void	handleEvents();
-		int		newClient();
+		void	addToPollList(int serverSocket);
+
+		int		newClient(int index);
 		int		existingClient(int index);
 		void	closeClient(int index);
 		void	cleanupSockets();
@@ -60,8 +62,11 @@ class Server
 
 		Server(const ServerConfig &config);
 		const ServerConfig& getConfig() const;
-		int		sockets(const std::vector<int> &ports);
-		void	loop();
+		const std::string getName() const;
+		const std::vector<int> getPorts() const;
+		void	handleEvent(const pollfd &pfd);
+		int		sockets();
+		const std::vector<pollfd> &getSockets() const;
 };
 
 #endif

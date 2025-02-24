@@ -15,8 +15,9 @@
 
 #include <iostream>
 
-#include <HttpParser.hpp>
+#include <HTTPRequest.hpp>
 #include <ServerConfig.hpp>
+#include <CGI.hpp>
 #include "Utilities.hpp"
 
 #include <sstream>

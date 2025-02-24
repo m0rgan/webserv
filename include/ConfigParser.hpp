@@ -36,6 +36,8 @@ public:
 	
 	std::vector<ServerConfig> parseConfigFile(const std::string &filename);
 	std::string &ignoreComments(std::string &line);
+
+	void printConfig() const; //debug must delete
 };
 
 #endif // CONFIGPARSER_HPP

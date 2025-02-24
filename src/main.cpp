@@ -15,13 +15,13 @@
 int main(int argc, char *argv[])
 {
 	if (argc > 2)
-		return (std::cerr << "How to use: ./webserv <config_file>" << std::endl, (1));
+		return (std::cerr << "How to use: ./webserv <config_file>" << std::endl, 1);
 	std::string configFile = (argc == 2) ? argv[1]: DEFAULT_CONFIG;
 
 	try
 	{
 		ServerLauncher webserv(configFile);
-		webserv.launch();
+		webserv.loop();
 	}
 	catch (const std::exception &e)
 	{

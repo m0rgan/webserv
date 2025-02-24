@@ -23,7 +23,8 @@ MANDATORY 	=	src/main.cpp \
 				src/SignalHandler.cpp \
 				src/Server.cpp \
 				src/Client.cpp \
-				src/HttpParser.cpp \
+				src/CGI.cpp \
+				src/HTTPRequest.cpp \
 				src/Utilities.cpp \
 				# src/HttpRequest.cpp
 SRC 		=	$(MANDATORY)

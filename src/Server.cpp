@@ -6,13 +6,13 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 12:02:13 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/15 12:02:13 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/02/23 17:20:41 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Server.hpp"
 
-Server::Server() : _nfds(0)
+Server::Server() : _nfds(0), _proto(nullptr)
 {
 	//getprotobyname
 	_proto = getprotobyname("tcp");
@@ -20,27 +20,32 @@ Server::Server() : _nfds(0)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(const ServerConfig &config) : _nfds(0), _currentConfig(config)
+Server::Server(const ServerConfig &config) : _ports(config.getPorts()), _nfds(0), _proto(nullptr), _currentConfig(config)
 {
-
 	_proto = getprotobyname("tcp");
 	if (!_proto)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(Server const &src) : _currentConfig(src._currentConfig)  //must finish 
+Server::Server(Server const &src) : _ports(src._ports), _fds(src._fds), _nfds(src._nfds), _currentConfig(src._currentConfig)  //must finish 
 {
-	this->_nfds = src._nfds;
-	return;
+	this->_proto = getprotobyname("tcp");
+	if (!this->_proto)
+		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
 Server &Server::operator=(Server const &rhs)
 {
-	if (this == &rhs)
-		return (*this);
-	this->_nfds = rhs._nfds;
-	this->_currentConfig = rhs._currentConfig;
-	this->_proto = rhs._proto;
+	if (this != &rhs)
+	{
+		this->_currentConfig = rhs._currentConfig;
+		this->_nfds = rhs._nfds;
+		this->_fds = rhs._fds;
+		this->_ports = rhs._ports;
+		this->_proto = getprotobyname("tcp");
+		if (!this->_proto)
+			throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
+	}
 	return (*this);
 }
 
@@ -51,22 +56,21 @@ const ServerConfig& Server::getConfig() const
 	return (_currentConfig);
 }
 
-
-int Server::sockets(const std::vector<int>& ports)
+int Server::sockets()
 {
 	int		serverSocket;
-	size_t	j;
+	size_t	i;
 
-	for (j = 0; j < ports.size(); ++j)
+	for (i = 0; i < _ports.size(); ++i)
 	{
 		serverSocket = createSocket();
 		if (serverSocket < 0)
 			return (1);
 		if (configureSocket(serverSocket))
 			return (1);
-		if (bindAndListen(serverSocket, ports[j]))
+		if (bindAndListen(serverSocket, _ports[i]))
 			return (1);
-		addToPoll(serverSocket);
+		addToPollList(serverSocket);
 	}
 	return (0);
 }
@@ -74,7 +78,6 @@ int Server::sockets(const std::vector<int>& ports)
 int Server::createSocket()
 {
 	int fd;
-
 	fd = socket(AF_INET, SOCK_STREAM, _proto->p_proto);
 	if (fd == -1)
 		throw std::runtime_error(std::string("socket: ") + strerror(errno));
@@ -102,8 +105,6 @@ int Server::configureSocket(int serverSocket)
 		std::cerr << "fcntl: " << strerror(errno) << std::endl;
 		close(serverSocket);
 		return (1);
-		// int serverFlags = fcntl(serverSocket, F_GETFL, 0); // set socket non-blocking?
-		// fcntl(serverSocket, F_SETFL, serverFlags | O_NONBLOCK);
 	}
 	return (0);
 }
@@ -123,58 +124,53 @@ std::cout << "Server listening on port: " << port << std::endl;
 	return (0);
 }
 
-void Server::addToPoll(int serverSocket)
+void Server::addToPollList(int serverSocket)
 {
 	pollfd serverPollfd = {serverSocket, POLLIN, 0};
 	_fds.push_back(serverPollfd);
 	_nfds++;
 }
 
-void Server::loop()
+const std::string Server::getName() const
 {
-	int	pollCount;
-	int timeout;
+	 return (_currentConfig.getName());
+};
 
-	signal(SIGURG, SignalHandler::handleUrgentData);
-
-	timeout = 5000;
-	for (;;)
-	{
-		pollCount = poll(_fds.data(), _nfds, timeout);
-		if (pollCount == -1)
-		{
-			std::cerr << "poll: " << strerror(errno) << std::endl;
-			break;
-		}
-		handleEvents();
-	}
-	cleanupSockets();
+const std::vector<pollfd> &Server::getSockets() const
+{
+	return (_fds);
 }
 
-void Server::handleEvents()
+const std::vector<int> Server::getPorts() const
 {
-	int	i;
+	return (_ports);
+};
 
-	for (i = 0; i < _nfds; i++)
-	{
-		if (_fds[i].revents & POLLIN) //check if _fds[i] ready for reading
-		{
-			if (_fds[i].fd == _fds[0].fd)
-				newClient();
-			else // existing client socket I/O operations
-				existingClient(i);
-		}
-	}
+void Server::handleEvent(const pollfd &pfd)
+{
+    unsigned long	i;
+
+    for (i = 0; i < (unsigned long)_nfds; i++)
+    {
+        if (pfd.fd == _fds[i].fd)
+        {
+            if (i < _ports.size()) // event is on a listening socket
+                newClient(i);
+            else // existing client socket I/O operations
+                existingClient(i);
+            break;
+        }
+    }
 }
 
-int Server::newClient()
+int Server::newClient(int index)
 {
 	int			clientSocket;
 	sockaddr_in	clientAddr;
 	socklen_t	socketSize;
 
 	socketSize = sizeof(clientAddr);
-	clientSocket = accept(_fds[0].fd, (struct sockaddr*)&clientAddr, &socketSize);
+	clientSocket = accept(_fds[index].fd, (struct sockaddr*)&clientAddr, &socketSize);
 	if (clientSocket == -1)
 	{
 		if (errno == EAGAIN || errno == EWOULDBLOCK) // prevents hanging indefinitely when no incoming connections
@@ -184,8 +180,6 @@ int Server::newClient()
 	}
 	if (clientSocket < 0)
 		return (std::cerr << "Failed to accept new connection: " << strerror(errno) << std::endl, 1);
-	// int clientFlags = fcntl(clientSocket, F_GETFL, 0);
-				// fcntl(clientSocket, F_SETFL, clientFlags | O_NONBLOCK);
 	fcntl(clientSocket, F_SETFL, O_NONBLOCK);
 	pollfd clientPollfd = {clientSocket, POLLIN | POLLOUT, 0}; //remove POLLOUT?
 	_fds.push_back(clientPollfd);
@@ -198,7 +192,6 @@ int Server::existingClient(int index)
 {
 	int clientSocket = _fds[index].fd;
 	Client* client = _clients[clientSocket];
-
 	try
 	{
 		client->readRequest();

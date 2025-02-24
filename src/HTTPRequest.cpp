@@ -1,34 +1,42 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   HttpParser.cpp                                     :+:      :+:    :+:   */
+/*   HTTPRequest.cpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/03 14:58:18 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/05 18:01:02 by migumore         ###   ########.fr       */
+/*   Updated: 2025/02/23 11:22:09 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <HttpParser.hpp>
+#include <HTTPRequest.hpp>
 
-#include <iostream>
+HTTPRequest::HTTPRequest(void){};
 
-HttpRequest HttpParser::parseRequest(const std::string &rawRequest)
+HTTPRequest::HTTPRequest(HTTPRequest const &src)
 {
-std::cout << "Raw HTTP Request:\n" << rawRequest << std::endl;
-	HttpRequest request;
-	std::istringstream requestStream(rawRequest);
-	std::string line;
+	(void)src;
+};
 
-	// 1️⃣ Parse the request line: METHOD URI HTTP/VERSION
+HTTPRequest HTTPRequest::operator=(HTTPRequest const &rhs)
+{
+	(void)rhs;
+	return (*this);
+};
+
+HTTPRequest::~HTTPRequest(void){};
+
+void HTTPRequest::parser(const std::string &rawRequest)
+{
+	std::istringstream	requestStream(rawRequest);
+	std::string			line;
+
 	if (std::getline(requestStream, line))
 	{
 		std::istringstream lineStream(line);
 		lineStream >> request.method >> request.uri >> request.httpVersion;
 	}
-
-	// 2️⃣ Parse headers
 	while (std::getline(requestStream, line) && line != "\r")
 	{
 		std::size_t colonPos = line.find(':');
@@ -37,18 +45,14 @@ std::cout << "Raw HTTP Request:\n" << rawRequest << std::endl;
 			std::string key = line.substr(0, colonPos);
 			std::string value = line.substr(colonPos + 1);
 			while (!value.empty() && (value[0] == ' ' || value[0] == '\t'))
-				value.erase(0, 1); // Trim leading spaces
+				value.erase(0, 1);
 			request.headers[key] = value;
 		}
 	}
-
-	// 3️⃣ Parse the body (if Content-Length is provided)
 	if (request.headers.find("Content-Length") != request.headers.end())
 	{
 		std::string body;
-		std::getline(requestStream, body, '\0'); // Read remaining data
+		std::getline(requestStream, body, '\0');
 		request.body = body;
 	}
-
-	return request;
 }

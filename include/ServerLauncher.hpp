@@ -19,19 +19,28 @@
 #include <iostream>
 #include <csignal>
 
+#define TIMEOUT 5000 // may be deleted
+
 class ServerLauncher
 {
 	private:
-		std::vector<Server *> _servers;
+		std::vector<Server*>		_servers;
+		std::vector<ServerConfig>	_serverBlocks;
+		std::map<int, Server*>		_socketServer;
+		std::vector<pollfd>			_pollfds;
+		void						socketsList();
 
 	public:
+		ServerLauncher(void);
 		ServerLauncher(const std::string &configFile);
 		ServerLauncher(const ServerLauncher &src);
 		ServerLauncher &operator=(const ServerLauncher &rhs);
-		~ServerLauncher();
+		~ServerLauncher(void);
 
-		void launch();
-		// void stopServers();
+		void loop();
+		void handleEvents();
+		void cleanupSockets();
+		void stopServers();
 		// void restartServer(size_t index);
 };
 

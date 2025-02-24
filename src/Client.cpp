@@ -19,16 +19,21 @@ Client::Client(int socket, const ServerConfig &config) : _clientSocket(socket), 
 	fcntl(_clientSocket, F_SETFL, O_NONBLOCK);
 }
 
-Client::Client(Client const &src)  //must finish
+Client::Client(Client const &src) : _clientSocket(src._clientSocket), _requestBuffer(src._requestBuffer), _responseBuffer(src._responseBuffer), _bytesSent(src._bytesSent), _currentConfig(src._currentConfig)
 {
-	this->_clientSocket = src._clientSocket;
 	return;
 }
 
 Client &Client::operator=(Client const &rhs) //must finish
 {
 	if (this != &rhs)
-		return (*this);
+	{
+		this->_clientSocket = rhs._clientSocket;
+		this->_requestBuffer = rhs._requestBuffer;
+		this->_responseBuffer = rhs._responseBuffer;
+		this->_bytesSent = rhs._bytesSent;
+		this->_currentConfig = rhs._currentConfig;
+	}
 	return (*this);
 }
 
@@ -68,16 +73,31 @@ void Client::readRequest() //check return values to kill process??
 
 void Client::handleRequest()
 {
-	HttpParser	parser;
-	HttpRequest	request;
+	HTTPRequest	http; // constructor that parses?
+	CGI cgi;
 
-	request = parser.parseRequest(_requestBuffer);
-	if (request.method == "GET")
-		handleGET(request.uri);
-	else if (request.method == "POST")
-		handlePOST(request.uri, request.body);
-	else if (request.method == "DELETE")
-		handleDELETE(request.uri);
+	http.parser(_requestBuffer);
+
+	try 
+	{
+		 if (cgi.routeToCGI(http.request.uri))
+		 {
+			cgi.execute(http);
+			return;
+		 }
+	}
+	catch (const std::exception &e)
+	{
+		std::cerr << "CGI error " << e.what() << std::endl;
+		prepareResponse("500 Internal Server Error", "text/plain", "500 Internal Server Error");
+		return;
+	}
+	if (http.request.method == "GET")
+		handleGET(http.request.uri);
+	else if (http.request.method == "POST")
+		handlePOST(http.request.uri, http.request.body);
+	else if (http.request.method == "DELETE")
+		handleDELETE(http.request.uri);
 	else
 		prepareResponse("405 Method Not Allowed", "text/plain", "405 Method Not Allowed");
 }
@@ -156,6 +176,8 @@ void Client::handleGET(const std::string &path)
 	std::string filePath = root + path;
 	if (filePath.back() == '/')
 		filePath += "index.html";
+	// substitute filepath logic for a function manages roots
+	std::cout << filePath << std::endl;
 	std::ifstream file(filePath, std::ios::binary);
 	if (!file)
 	{
