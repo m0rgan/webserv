@@ -37,6 +37,7 @@ class Server
 	private:
 		std::string				_name;
 		std::vector<int>		_ports;
+		std::vector<std::string>_hosts;
 		std::vector<pollfd> 	_fds;
 		int						_nfds;
 		struct protoent			*_proto;
@@ -45,7 +46,7 @@ class Server
 
 		int		createSocket();
 		int		configureSocket(int serverSocket);
-		int		bindAndListen(int serverSocket, int port);
+		int		bindAndListen(int serverSocket, const std::string &host, int port);
 		void	addToPollList(int serverSocket);
 
 		int		newClient(int index);
@@ -64,6 +65,7 @@ class Server
 		const ServerConfig& getConfig() const;
 		const std::string getName() const;
 		const std::vector<int> getPorts() const;
+		const std::vector<std::string> getHosts() const;
 		void	handleEvent(const pollfd &pfd);
 		int		sockets();
 		const std::vector<pollfd> &getSockets() const;

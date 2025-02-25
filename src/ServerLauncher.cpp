@@ -30,7 +30,7 @@ ServerLauncher::ServerLauncher(const std::string &configFile)
 	signal(SIGPIPE, SIG_IGN); //can be handled on recv or send?
 	signal(SIGINT, handleSIGINT); //make one macro signal handler?
 
-	ConfigParser parsedConfigFile(configFile);
+	ConfigFile parsedConfigFile(configFile);
 	parsedConfigFile.printConfig(); //delete its debug
 	_serverBlocks = parsedConfigFile.getServers();
 
@@ -40,11 +40,11 @@ ServerLauncher::ServerLauncher(const std::string &configFile)
 		std::cout << "Launching server: " << _serverBlocks[i].getName() << std::endl;
 		Server* server = new Server(_serverBlocks[i]);
 		_servers.push_back(server);
-		if (_servers.back()->sockets())
+		if (_servers.back()->sockets()) //change to try catch
 		{
 			delete _servers.back();
 			_servers.pop_back(); //handle bad server block and launch rest or? how does nginx do?
-			throw std::runtime_error("server");
+			throw std::runtime_error("server->sockets");
 		}
 		const std::vector<pollfd> &sockets = _servers.back()->getSockets();
 		for (size_t j = 0; j < sockets.size(); ++j)
@@ -97,7 +97,7 @@ void ServerLauncher::loop()
 			std::cerr << "poll: " << strerror(errno) << std::endl;
 			break;
 		}
-		handleEvents();
+		dispatchEventToServer();
 	}
 	cleanupSockets();
 }
@@ -122,14 +122,17 @@ void ServerLauncher::socketsList()
 	}
 }
 
-void ServerLauncher::handleEvents()
+void ServerLauncher::dispatchEventToServer()
 {
-	for (size_t i = 0; i < _pollfds.size(); ++i)
+	Server	*serverBuffer;
+	size_t	i;
+
+	for (i = 0; i < _pollfds.size(); ++i)
 	{
 		if (_pollfds[i].revents & POLLIN)
 		{
-			Server *server = _socketServer[_pollfds[i].fd];
-			server->handleEvent(_pollfds[i]);
+			serverBuffer = _socketServer[_pollfds[i].fd];
+			serverBuffer->handleEvent(_pollfds[i]);
 		}
 	}
 }

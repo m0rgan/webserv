@@ -3,129 +3,128 @@
 /*                                                        :::      ::::::::   */
 /*   ServerConfig.cpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/02/05 13:01:34 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/05 18:28:46 by migumore         ###   ########.fr       */
+/*   Created: 2025/02/25 15:16:44 by gabrielfern       #+#    #+#             */
+/*   Updated: 2025/02/25 15:16:44 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <ServerConfig.hpp>
-#include <iostream>
+#include "ServerConfig.hpp"
 
-ServerConfig::ServerConfig() : autoIndex(false), maxBodySize(1048576), clientTimeout(30)
-{
-	ports.clear();
-}
+ServerConfig::ServerConfig() : _maxBodySize(0), _autoIndex(false) {}
 
-ServerConfig::ServerConfig(const ServerConfig &other)
-{
-	*this = other;
-}
+ServerConfig::ServerConfig(const ServerConfig &src){*this = src;} //FIX
 
-ServerConfig &ServerConfig::operator=(const ServerConfig &other)
+ServerConfig &ServerConfig::operator=(const ServerConfig &rhs)
 {
-	if (this != &other)
+	if (this != &rhs)
 	{
-		ports = other.ports;
-		_name = other._name;
-		_root = other._root;
-		errorPages = other.errorPages;
-		locations = other.locations;
-		methods = other.methods;
-		cgiExtension = other.cgiExtension;
-		indexFiles = other.indexFiles;
-		autoIndex = other.autoIndex;
-		maxBodySize = other.maxBodySize;
-		clientTimeout = other.clientTimeout;
-		logAccessFile = other.logAccessFile;
-		logErrorFile = other.logErrorFile;
-		redirects = other.redirects;
-		upstreamServers = other.upstreamServers;
-		allowList = other.allowList;
-		denyList = other.denyList;
-		mimeTypes = other.mimeTypes;
+		this->_hostPort = rhs._hostPort;
+		this->_ports = rhs._ports;
+		this->_hosts = rhs._hosts;
+		this->_name = rhs._name;
+		this->_root = rhs._root;
+		this->_errorPages = rhs._errorPages;
+		this->_locations = rhs._locations;
+		this->_cgiExtension = rhs._cgiExtension;
+		this->_indexFiles = rhs._indexFiles;
+		this->_autoIndex = rhs._autoIndex;
+		this->_maxBodySize = rhs._maxBodySize;
+		this->_logAccessFile = rhs._logAccessFile;
+		this->_logErrorFile = rhs._logErrorFile;
+		this->_redirects = rhs._redirects;
 	}
-	return *this;
+	return (*this);
 }
 
 ServerConfig::~ServerConfig() {}
 
-const std::vector<int> &ServerConfig::getPorts() const { return ports; }
-const std::string &ServerConfig::getName() const { return _name; }
-const std::string &ServerConfig::getRoot() const { return _root; }
-const std::map<int, std::string> &ServerConfig::getErrorPages() const { return errorPages; }
-const std::map<std::string, std::string> &ServerConfig::getLocations() const { return locations; }
-const std::map<std::string, std::vector<std::string> > &ServerConfig::getMethods() const { return methods; }
-const std::string &ServerConfig::getCgiExtension() const { return cgiExtension; }
-const std::vector<std::string> &ServerConfig::getIndexFiles() const { return indexFiles; }
-bool ServerConfig::isAutoIndex() const { return autoIndex; }
-int ServerConfig::getMaxBodySize() const { return maxBodySize; }
-int ServerConfig::getClientTimeout() const { return clientTimeout; }
-const std::string &ServerConfig::getLogAccessFile() const { return logAccessFile; }
-const std::string &ServerConfig::getLogErrorFile() const { return logErrorFile; }
-const std::map<std::string, std::string> &ServerConfig::getRedirects() const { return redirects; }
-const std::vector<std::string> &ServerConfig::getUpstreamServers() const { return upstreamServers; }
-const std::vector<std::string> &ServerConfig::getAllowList() const { return allowList; }
-const std::vector<std::string> &ServerConfig::getDenyList() const { return denyList; }
-const std::map<std::string, std::string> &ServerConfig::getMimeTypes() const { return mimeTypes; }
+const std::vector<int> &ServerConfig::getPorts() const { return this->_ports; }
+const std::vector<std::string> &ServerConfig::getHosts() const { return this->_hosts; }
+const std::string &ServerConfig::getName() const { return this->_name; }
+const std::string &ServerConfig::getRoot() const { return this->_root; }
+const std::map<int, std::string> &ServerConfig::getErrorPages() const { return this->_errorPages; }
+const std::map<std::string, ServerConfigLocation> &ServerConfig::getLocations() const { return this->_locations; }
+const std::vector<std::string> &ServerConfig::getIndexFiles() const { return this->_indexFiles; }
+int ServerConfig::getMaxBodySize() const { return this->_maxBodySize; }
 
-void ServerConfig::addPort(int port) { ports.push_back(port); }
+const std::string &ServerConfig::getLogAccessFile() const { return this->_logAccessFile; }
+const std::string &ServerConfig::getLogErrorFile() const { return this->_logErrorFile; }
+const std::map<std::string, std::string> &ServerConfig::getRedirects() const { return this->_redirects; }
+const std::vector<std::pair<std::string, int> > &ServerConfig::getHostPort() const { return _hostPort; }
+
+void ServerConfig::addHostPort(const std::string &host, int port) {_hostPort.push_back(std::make_pair(host, port));}
+void ServerConfig::addPort(int port) { _ports.push_back(port); }
+void ServerConfig::addHost(std::string host) { _hosts.push_back(host); }
 void ServerConfig::setServerName(const std::string &name) { _name = name; }
-void ServerConfig::setRoot(const std::string &root) { this->_root = root; }
-void ServerConfig::addErrorPage(int errorCode, const std::string &pagePath) { errorPages[errorCode] = pagePath; }
-void ServerConfig::addLocation(const std::string &uri, const std::string &path) { locations[uri] = path; }
-void ServerConfig::addMethod(const std::string &uri, const std::string &method) { methods[uri].push_back(method); }
-void ServerConfig::setCgiExtension(const std::string &ext) { cgiExtension = ext; }
-void ServerConfig::addIndexFile(const std::string &file) { indexFiles.push_back(file); }
-void ServerConfig::setAutoIndex(bool enabled) { autoIndex = enabled; }
-void ServerConfig::setMaxBodySize(int size) { maxBodySize = size; }
-void ServerConfig::setClientTimeout(int timeout) { clientTimeout = timeout; }
-void ServerConfig::setLogAccessFile(const std::string &path) { logAccessFile = path; }
-void ServerConfig::setLogErrorFile(const std::string &path) { logErrorFile = path; }
-void ServerConfig::addRedirect(const std::string &from, const std::string &to) { redirects[from] = to; }
-void ServerConfig::addUpstreamServer(const std::string &backend) { upstreamServers.push_back(backend); }
-void ServerConfig::addAllowIP(const std::string &ip) { allowList.push_back(ip); }
-void ServerConfig::addDenyIP(const std::string &ip) { denyList.push_back(ip); }
-void ServerConfig::addMimeType(const std::string &extension, const std::string &mimeType) { mimeTypes[extension] = mimeType; }
+void ServerConfig::setRoot(const std::string &root) { _root = root; }
+void ServerConfig::addErrorPage(int errorCode, const std::string &pagePath){_errorPages[errorCode] = pagePath;}
+void ServerConfig::addLocation(const ServerConfigLocation &location){_locations[location.getURI()] = location;}
+void ServerConfig::setCgiExtension(const std::string &ext) { _cgiExtension = ext; }
+void ServerConfig::addIndexFile(const std::string &file) { _indexFiles.push_back(file); }
+void ServerConfig::setAutoIndex(bool enabled) { _autoIndex = enabled; }
+void ServerConfig::setMaxBodySize(int size) { _maxBodySize = size; }
+void ServerConfig::setLogAccessFile(const std::string &path) { _logAccessFile = path; }
+void ServerConfig::setLogErrorFile(const std::string &path) { _logErrorFile = path; }
+void ServerConfig::addRedirect(const std::string &from, const std::string &to) { _redirects[from] = to; }
 
 void ServerConfig::printConfig() const
 {
-	std::cout << "· Server Name: " << _name << std::endl;
-	std::cout << "· Ports: ";
-	for (size_t i = 0; i < ports.size(); i++)
-	{
-		std::cout << ports[i] << " ";
-	}
+	std::cout << "SERVER CONFIG PRINT " << std::endl;
+	std::cout << "=================================" << std::endl;
+	std::cout << "Server Configuration: " << _name << std::endl;
+	std::cout << "=================================" << std::endl;
+
+	std::cout << "Listening on: ";
+	for (size_t i = 0; i < _hostPort.size(); i++)
+		std::cout << _hostPort[i].first << ":" << _hostPort[i].second << " ";
 	std::cout << std::endl;
 
-	std::cout << "· Error Pages:" << std::endl;
-	for (std::map<int, std::string>::const_iterator it = errorPages.begin(); it != errorPages.end(); ++it)
-	{
-		std::cout << "  " << it->first << " -> " << it->second << std::endl;
-	}
-
-	std::cout << "· Index Files: ";
-	for (size_t i = 0; i < indexFiles.size(); i++)
-	{
-		std::cout << indexFiles[i] << " ";
-	}
+	std::cout << "Ports: ";
+	for (size_t i = 0; i < _ports.size(); i++)
+		std::cout << _ports[i] << " ";
 	std::cout << std::endl;
 
-	std::cout << "· Auto-Index: " << (autoIndex ? "on" : "off") << std::endl;
-	std::cout << "· Max Body Size: " << maxBodySize << " bytes" << std::endl;
-	std::cout << "· Client Timeout: " << clientTimeout << " seconds" << std::endl;
-	std::cout << "· Logging:\n\t- Access: " << logAccessFile << "\n\t- Error: " << logErrorFile << std::endl;
+	std::cout << "Hosts: ";
+	for (size_t i = 0; i < _hosts.size(); i++)
+		std::cout << _hosts[i] << " ";
+	std::cout << std::endl;
 
-	std::cout << "· Redirects:" << std::endl;
-	for (std::map<std::string, std::string>::const_iterator it = redirects.begin(); it != redirects.end(); ++it)
+	std::cout << "Root Directory: " << _root << std::endl;
+	std::cout << "Auto Index: " << (_autoIndex ? "Enabled" : "Disabled") << std::endl;
+	std::cout << "Max Body Size: " << _maxBodySize << " bytes" << std::endl;
+
+	if (!_cgiExtension.empty())
+		std::cout << "CGI Extension: " << _cgiExtension << std::endl;
+
+	std::cout << "Index Files: ";
+	for (size_t i = 0; i < _indexFiles.size(); i++)
+		std::cout << _indexFiles[i] << " ";
+	std::cout << std::endl;
+
+	std::cout << "Error Pages: ";
+	for (std::map<int, std::string>::const_iterator it = _errorPages.begin(); it != _errorPages.end(); ++it)
+		std::cout << it->first << " -> " << it->second << " ";
+	std::cout << std::endl;
+
+	std::cout << "Log Files: " << std::endl;
+	std::cout << "  Access Log: " << _logAccessFile << std::endl;
+	std::cout << "  Error Log: " << _logErrorFile << std::endl;
+
+	std::cout << "Redirections: ";
+	for (std::map<std::string, std::string>::const_iterator it = _redirects.begin(); it != _redirects.end(); ++it)
+		std::cout << it->first << " -> " << it->second << " ";
+	std::cout << std::endl;
+
+	std::cout << "=================================" << std::endl;
+	std::cout << "Location Blocks:" << std::endl;
+	std::cout << "=================================" << std::endl;
+	
+	for (std::map<std::string, ServerConfigLocation>::const_iterator it = _locations.begin(); it != _locations.end(); ++it)
 	{
-		std::cout << "  " << it->first << " -> " << it->second << std::endl;
+		it->second.printLocationConfig();
 	}
 
-	std::cout << "· Allowed MIME Types:" << std::endl;
-	for (std::map<std::string, std::string>::const_iterator it = mimeTypes.begin(); it != mimeTypes.end(); ++it)
-	{
-		std::cout << "  " << it->first << " -> " << it->second << std::endl;
-	}
+	std::cout << "=================================" << std::endl;
 }

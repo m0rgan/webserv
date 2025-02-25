@@ -28,10 +28,10 @@
 
 struct envCGI
 {
-	std::string reqMethodEnv;
-	std::string reqUriEnv;
-	std::string pathInfoEnv;
-	std::string scriptFilenameEnv;
+	std::string reqMethod;
+	std::string reqUri;
+	std::string pathInfo;
+	std::string scriptFilename;
 };
 
 class CGI

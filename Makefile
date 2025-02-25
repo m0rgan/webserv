@@ -18,8 +18,9 @@ CC 			=	c++
 CFLAGS		=	-Wall -Werror -Wextra -std=c++98 -I include
 MANDATORY 	=	src/main.cpp \
 				src/ServerConfig.cpp \
+				src/ServerConfigLocation.cpp \
 				src/ServerLauncher.cpp \
-				src/ConfigParser.cpp \
+				src/ConfigFile.cpp \
 				src/SignalHandler.cpp \
 				src/Server.cpp \
 				src/Client.cpp \

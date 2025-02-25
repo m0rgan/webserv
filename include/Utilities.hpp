@@ -20,8 +20,8 @@ class Utilities
 {
 	public:
 		Utilities();
-		Utilities(const Utilities &other);
-		Utilities &operator=(const Utilities &other);
+		Utilities(const Utilities &src);
+		Utilities &operator=(const Utilities &rhs);
 		~Utilities();
 
 		std::string getMimeType(const std::string &extension) const;

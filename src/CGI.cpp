@@ -78,7 +78,7 @@ std::string unchunk(const std::string &chunkedBody)
 		{
 			chunkSize = hexToULong(line);
 		}
-		catch (...)
+		catch (...) //catch all - fix to exceptions? or leave all for non managed exceptions?
 		{
 			break;
 		}
@@ -90,7 +90,7 @@ std::string unchunk(const std::string &chunkedBody)
 		delete[] buffer;
 		getline(ss, line); // read the trailing CRLF after the chunk
 	}
-	return unchunked;
+	return (unchunked);
 }
 
 
@@ -98,20 +98,20 @@ void CGI::parser(const HTTPRequest &http, const std::string serverRoot)
 {
 	size_t extPos = http.request.uri.find_last_of('.');
 	if (extPos == std::string::npos || http.request.uri.substr(extPos) != ".php")
-		return; // not php – skip CGI execution
+		return; // not php - must make dynamic for other extensions
 	_fullPath = serverRoot + http.request.uri; // use as PATH_INFO macro, must revise
 	// PATH_INFO and SCRIPT_FILENAME use full path so CGI knows which file to execute
-	_envBuffer.reqMethodEnv       = "REQUEST_METHOD=" + http.request.method;
-	_envBuffer.reqUriEnv          = "REQUEST_URI=" + http.request.uri;
-	_envBuffer.pathInfoEnv        = "PATH_INFO=" + _fullPath;
-	_envBuffer.scriptFilenameEnv  = "SCRIPT_FILENAME=" + _fullPath;
+	_envBuffer.reqMethod = "REQUEST_METHOD=" + http.request.method;
+	_envBuffer.reqUri = "REQUEST_URI=" + http.request.uri;
+	_envBuffer.pathInfo = "PATH_INFO=" + _fullPath;
+	_envBuffer.scriptFilename = "SCRIPT_FILENAME=" + _fullPath;
 	// more variables are needed?
 
 	_env.clear();
-	_env.push_back(const_cast<char*>(_envBuffer.reqMethodEnv.c_str()));
-	_env.push_back(const_cast<char*>(_envBuffer.reqUriEnv.c_str()));
-	_env.push_back(const_cast<char*>(_envBuffer.pathInfoEnv.c_str()));
-	_env.push_back(const_cast<char*>(_envBuffer.scriptFilenameEnv.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.reqMethod.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.reqUri.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.pathInfo.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.scriptFilename.c_str()));
 	_env.push_back(NULL);
 	_argv.clear();
 	_argv.push_back(const_cast<char*>(_cgiProgram.c_str()));
@@ -145,7 +145,7 @@ void CGI::execute(const HTTPRequest &http)
 	}
 	if (pid == 0)
 	{
-		// Change curr dir to dir containing requested file ensures any relative file paths inside the CGI script work correctly
+		// change curr dir to dir containing requested file ensures any relative file paths inside the CGI script work correctly
 		size_t pos = _fullPath.find_last_of('/');
 		if (pos != std::string::npos)
 		{

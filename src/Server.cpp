@@ -20,14 +20,14 @@ Server::Server() : _nfds(0), _proto(nullptr)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(const ServerConfig &config) : _ports(config.getPorts()), _nfds(0), _proto(nullptr), _currentConfig(config)
+Server::Server(const ServerConfig &config) : _ports(config.getPorts()), _hosts(config.getHosts()), _nfds(0), _proto(nullptr), _currentConfig(config)
 {
 	_proto = getprotobyname("tcp");
 	if (!_proto)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(Server const &src) : _ports(src._ports), _fds(src._fds), _nfds(src._nfds), _currentConfig(src._currentConfig)  //must finish 
+Server::Server(Server const &src) : _ports(src._ports), _hosts(src._hosts), _fds(src._fds), _nfds(src._nfds), _currentConfig(src._currentConfig)  //must finish 
 {
 	this->_proto = getprotobyname("tcp");
 	if (!this->_proto)
@@ -68,7 +68,7 @@ int Server::sockets()
 			return (1);
 		if (configureSocket(serverSocket))
 			return (1);
-		if (bindAndListen(serverSocket, _ports[i]))
+		if (bindAndListen(serverSocket, _hosts[i], _ports[i]))
 			return (1);
 		addToPollList(serverSocket);
 	}
@@ -78,7 +78,7 @@ int Server::sockets()
 int Server::createSocket()
 {
 	int fd;
-	fd = socket(AF_INET, SOCK_STREAM, _proto->p_proto);
+	fd = socket(AF_INET, SOCK_STREAM, _proto->p_proto); //af_inet tcp or udp, then sock stream for tcp
 	if (fd == -1)
 		throw std::runtime_error(std::string("socket: ") + strerror(errno));
 	return (fd);
@@ -109,16 +109,56 @@ int Server::configureSocket(int serverSocket)
 	return (0);
 }
 
-int Server::bindAndListen(int serverSocket, int port)
+unsigned long convertIPv4ToBinary(const std::string &host)
+{
+	std::istringstream iss(host);
+	std::string token;
+	std::vector<int> parts;
+
+	while (std::getline(iss, token, '.'))
+	{
+		int part = std::stoi(token);
+		if (part < 0 || part > 255)
+		{
+			throw std::invalid_argument("Invalid IPv4 address part");
+		}
+		parts.push_back(part);
+	}
+
+	if (parts.size() != 4)
+	{
+		throw std::invalid_argument("Invalid IPv4 address format");
+	}
+
+	unsigned long binaryAddress = 0;
+	for (size_t i = 0; i < parts.size(); ++i)
+	{
+		binaryAddress = (binaryAddress << 8) | parts[i];
+	}
+
+	return htonl(binaryAddress);
+}
+
+int Server::bindAndListen(int serverSocket, const std::string &host, int port)
 {
 	sockaddr_in serverAddr = {}; //set socket address and initialize struct to zeros
-	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(port);
-	serverAddr.sin_addr.s_addr = INADDR_ANY; // make it htonl(INADDR_ANY)?
+	serverAddr.sin_family = AF_INET; //ipv4
+	serverAddr.sin_port = htons(port); // htons changes to big endian -- confirm
+	// serverAddr.sin_addr.s_addr = INADDR_ANY; // make it htonl(INADDR_ANY)?
 	
+	try
+	{
+		serverAddr.sin_addr.s_addr = convertIPv4ToBinary(host);
+	}
+	catch (const std::invalid_argument &e)
+	{
+		std::cerr << "Invalid address: " << host << " (" << e.what() << ")" << std::endl;
+		close(serverSocket);
+		return 1;
+	}
 	if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == -1)
 		return (std::cerr << "bind: " << strerror(errno) << std::endl, close(serverSocket), 1);
-	if (listen(serverSocket, SOMAXCONN) == -1) // backlog should be SOMAXCONN or? check
+	if (listen(serverSocket, SOMAXCONN) == -1)
 		return (std::cerr << "listen: " << strerror(errno) << std::endl, close(serverSocket), 1);
 std::cout << "Server listening on port: " << port << std::endl;
 	return (0);
@@ -133,7 +173,7 @@ void Server::addToPollList(int serverSocket)
 
 const std::string Server::getName() const
 {
-	 return (_currentConfig.getName());
+	return (_currentConfig.getName());
 };
 
 const std::vector<pollfd> &Server::getSockets() const
@@ -146,21 +186,26 @@ const std::vector<int> Server::getPorts() const
 	return (_ports);
 };
 
+const std::vector<std::string> Server::getHosts() const
+{
+	return (_hosts);
+};
+
 void Server::handleEvent(const pollfd &pfd)
 {
-    unsigned long	i;
+	unsigned long	i;
 
-    for (i = 0; i < (unsigned long)_nfds; i++)
-    {
-        if (pfd.fd == _fds[i].fd)
-        {
-            if (i < _ports.size()) // event is on a listening socket
-                newClient(i);
-            else // existing client socket I/O operations
-                existingClient(i);
-            break;
-        }
-    }
+	for (i = 0; i < (unsigned long)_nfds; i++)
+	{
+		if (pfd.fd == _fds[i].fd)
+		{
+			if (i < _ports.size()) // event is on a listening socket
+				newClient(i);
+			else // existing client socket I/O operations
+				existingClient(i);
+			break;
+		}
+	}
 }
 
 int Server::newClient(int index)

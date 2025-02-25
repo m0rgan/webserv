@@ -1,0 +1,76 @@
+services:
+
+  nginx:
+    build:
+      context: requirements/nginx/
+      args:
+        DOMAIN_NAME: ${DOMAIN_NAME}
+        DOMAIN_BONUS: ${DOMAIN_BONUS}
+    container_name: nginx
+    ports:
+      - "443:443"
+      - "9092:9092"
+    networks:
+      - inception-network
+    volumes:
+      - wp-web-vol:/var/www/html
+      - bonus-web-vol:/var/www/bonus-website
+    depends_on:
+     - wordpress
+     - website
+    env_file:
+      - .env
+    restart: on-failure
+
+  wordpress:
+    build:
+      context: requirements/wordpress/
+    container_name: wordpress
+    networks:
+      - inception-network
+    volumes:
+      - wp-web-vol:/var/www/html
+    depends_on:
+      - mariadb
+    env_file:
+      - .env
+    restart: on-failure
+
+  mariadb:
+    build:
+      context: requirements/mariadb/
+    container_name: mariadb
+    networks:
+      - inception-network
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - wp-db-vol:/var/lib/mysql
+    env_file:
+      - .env
+    restart: on-failure
+
+  website:
+    build:
+      context: requirements/bonus/website/
+    container_name: website
+    networks:
+      - inception-network
+    volumes:
+      - bonus-web-vol:/var/www/bonus-website
+    restart: on-failure
+
+volumes:
+  wp-db-vol:
+  wp-web-vol:
+  bonus-web-vol:
+
+networks:
+  inception-network:
+    driver: bridge

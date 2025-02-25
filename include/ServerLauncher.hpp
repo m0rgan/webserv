@@ -14,7 +14,7 @@
 #define SERVERLAUNCHER_HPP
 
 #include "Server.hpp"
-#include "ConfigParser.hpp"
+#include "ConfigFile.hpp"
 #include <vector>
 #include <iostream>
 #include <csignal>
@@ -38,7 +38,7 @@ class ServerLauncher
 		~ServerLauncher(void);
 
 		void loop();
-		void handleEvents();
+		void dispatchEventToServer();
 		void cleanupSockets();
 		void stopServers();
 		// void restartServer(size_t index);
