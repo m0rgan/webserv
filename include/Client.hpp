@@ -19,6 +19,8 @@
 #include <ServerConfig.hpp>
 #include <CGI.hpp>
 #include "Utilities.hpp"
+#include <Response.hpp>
+#include <ErrorPage.hpp>
 
 #include <sstream>
 #include <fstream>
@@ -41,23 +43,25 @@ class Client
 		ssize_t		_bytesSent;
 		ServerConfig _currentConfig;
 
-		void	handleGET(const std::string &path);
-		void	handlePOST(const std::string &path, const std::string &body);
+		// void	handleGET(const std::string &path);
+		void handleGET(HTTPRequest *http);
+		void handlePOST(const std::string &path, const std::string &body);
 		void	handleDELETE(const std::string &path);
-
-	public:
+		void closeClient();
+		void prepareResponse(int statusCode, const std::string &contentType, const std::string &body);
+		void serveErrorResponse(int statusCode);
+		
+		public:
 		Client(void);
 		Client(int socket, const ServerConfig& config);
 		Client(Client const &src);
 		Client &operator=(Client const &rhs);
 		~Client(void);
-
+		
 		void readRequest();
 		void handleRequest();
 		bool hasPendingData() const;
 		void writeResponse();
-		void closeClient();
-		void prepareResponse(const std::string &status, const std::string &contentType, const std::string &body);
 
 		int getSocket() const;
 };

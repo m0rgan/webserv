@@ -17,15 +17,15 @@ ConfigFile::ConfigFile(const std::string &configFile)
 	_serverBlockConfig = parser(configFile);
 }
 
-ConfigFile::ConfigFile(const ConfigFile &other)
+ConfigFile::ConfigFile(const ConfigFile &src) //fix
 {
-	*this = other;
+	*this = src;
 }
 
-ConfigFile &ConfigFile::operator=(const ConfigFile &other)
+ConfigFile &ConfigFile::operator=(const ConfigFile &rhs) //fix
 {
-	if (this != &other)
-		_serverBlockConfig = other._serverBlockConfig;
+	if (this != &rhs)
+		_serverBlockConfig = rhs._serverBlockConfig;
 	return (*this);
 }
 
@@ -38,12 +38,15 @@ const std::vector<ServerConfig> &ConfigFile::getServers() const
 
 bool ConfigFile::isDuplicateServer(const std::vector<ServerConfig> &servers, const ServerConfig &newServer)
 {
-	for (size_t i = 0; i < servers.size(); ++i)
+	size_t	i;
+	size_t	j;
+
+	for (i = 0; i < servers.size(); ++i)
 	{
 		if (servers[i].getName() == newServer.getName())
 		{
 			const std::vector<int> &ports = servers[i].getPorts();
-			for (size_t j = 0; j < ports.size(); ++j)
+			for (j = 0; j < ports.size(); ++j)
 				if (std::find(newServer.getPorts().begin(), newServer.getPorts().end(), ports[j]) != newServer.getPorts().end())
 					return (std::cerr << "Error: Duplicate server_name + port found in configuration." << std::endl, true);
 		}
@@ -58,7 +61,7 @@ std::vector<ServerConfig> ConfigFile::parser(const std::string &filename)
 	if (!file)
 	{
 		std::cerr << "Error: Cannot open configuration file: " << filename << std::endl;
-		return parsedServers;
+		return (parsedServers);
 	}
 	std::string line;
 	while (std::getline(file, line))
@@ -126,44 +129,43 @@ ServerConfigLocation ConfigFile::parseLocationBlock(std::ifstream &file, const s
 
 void ConfigFile::parseListenDirective(const std::string &listenValue, ServerConfig &serverConfig)
 {
-	std::string host = "0.0.0.0"; // Default host
-	int port = 80; // Default port
+	//invalid port number is simply returning but allows exectuion, does nginx launch anyway if error happens on port?
+	std::string host = "0.0.0.0";
+	int port = 80;
 
 	size_t colonPos = listenValue.find(':');
 	try
 	{
 		if (colonPos != std::string::npos)
 		{
-			host = listenValue.substr(0, colonPos);
-			std::stringstream portStream(listenValue.substr(colonPos + 1));
-			if (!(portStream >> port))
+			if (listenValue[0] == '[') // IPv6 address
 			{
-				throw std::invalid_argument("Invalid port number");
+				size_t endBracketPos = listenValue.find(']');
+				if (endBracketPos == std::string::npos || endBracketPos < colonPos)
+					throw std::invalid_argument("Invalid IPv6 address format");
+
+				host = listenValue.substr(1, endBracketPos - 1); // Extract IPv6 address without brackets
+				std::stringstream portStream(listenValue.substr(endBracketPos + 2));
+				if (!(portStream >> port))
+					throw std::invalid_argument("Invalid port number");
+				// serverConfig.addHost("[" + host + "]");
+				serverConfig.addHostPort("[" + host + "]", port);
+			}
+			else // IPv4 address
+			{
+				host = listenValue.substr(0, colonPos);
+				std::stringstream portStream(listenValue.substr(colonPos + 1));
+				if (!(portStream >> port))
+					throw std::invalid_argument("Invalid port number");
+				serverConfig.addHostPort(host, port);
 			}
 		}
 		else
 		{
 			std::stringstream portStream(listenValue);
 			if (!(portStream >> port))
-			{
 				throw std::invalid_argument("Invalid port number");
-			}
-		}
-
-		// Identify if host is IPv4 or IPv6
-		if (host.find(':') != std::string::npos)
-		{
-			// IPv6
-			if (host.front() != '[' || host.back() != ']')
-			{
-				throw std::invalid_argument("Invalid IPv6 address format");
-			}
-			host = host.substr(1, host.size() - 2); // Remove brackets
-		}
-		else
-		{
-			// IPv4
-			// No additional processing needed for IPv4
+			serverConfig.addHostPort(host, port);
 		}
 	}
 	catch (const std::invalid_argument &e)
@@ -179,7 +181,6 @@ void ConfigFile::parseListenDirective(const std::string &listenValue, ServerConf
 
 	serverConfig.addPort(port);
 	serverConfig.addHost(host);
-	serverConfig.addHostPort(host, port);
 }
 
 void ConfigFile::serverParseKeyValue(std::istringstream &lineStream, const std::string &key, ServerConfig &serverConfig)
@@ -213,15 +214,13 @@ void ConfigFile::serverParseKeyValue(std::istringstream &lineStream, const std::
 	{
 		std::string file;
 		while (lineStream >> file)
-		{
 			serverConfig.addIndexFile(file);
-		}
 	}
 	else if (key == "autoindex")
 	{
 		std::string value;
 		lineStream >> value;
-		serverConfig.setAutoIndex(value == "on");
+		serverConfig.setAutoIndex(value == "on"); //may not need this?
 	}
 	else if (key == "client_max_body_size")
 	{
@@ -261,9 +260,7 @@ void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std
 	{
 		std::string file;
 		while (lineStream >> file)
-		{
 			locationConfig.addIndexFile(file);
-		}
 	}
 	else if (key == "autoindex")
 	{
@@ -393,7 +390,9 @@ void ConfigFile::printConfig() const
 		for (std::map<int, std::string>::const_iterator it = errorPages.begin(); it != errorPages.end(); ++it)
 		{
 			std::cout << it->first << " -> " << it->second;
-			if (std::next(it) != errorPages.end())
+			std::map<int, std::string>::const_iterator nxt = it;
+			++nxt;
+			if (nxt != errorPages.end())
 				std::cout << ", ";
 		}
 		std::cout << std::endl;
@@ -406,7 +405,7 @@ void ConfigFile::printConfig() const
 				std::cout << ", ";
 		}
 		std::cout << std::endl;
-		// std::cout << "  Autoindex: " << (config.getAutoIndex() ? "on" : "off") << std::endl;
+		std::cout << "  Autoindex: " << (config.getAutoIndex() ? "on" : "off") << std::endl;
 		std::cout << "  Max Body Size: " << config.getMaxBodySize() << std::endl;
 		std::cout << "  Log Access File: " << config.getLogAccessFile() << std::endl;
 		std::cout << "  Log Error File: " << config.getLogErrorFile() << std::endl;
@@ -415,28 +414,20 @@ void ConfigFile::printConfig() const
 		for (std::map<std::string, std::string>::const_iterator it = redirects.begin(); it != redirects.end(); ++it)
 		{
 			std::cout << it->first << " -> " << it->second;
-			if (std::next(it) != redirects.end())
+			std::map<std::string, std::string>::const_iterator nxt = it;
+			++nxt;
+			if (nxt != redirects.end())
 				std::cout << ", ";
 		}
 		std::cout << std::endl;
-		// std::cout << "  Allowed IPs: ";
-		// // const std::vector<std::string> &allowIPs = config.getAllowIPs();
-		// for (size_t j = 0; j < allowIPs.size(); ++j)
-		// {
-		//     std::cout << allowIPs[j];
-		//     if (j < allowIPs.size() - 1)
-		//         std::cout << ", ";
-		// }
-		// std::cout << std::endl;
-		// std::cout << "  Denied IPs: ";
-		// // const std::vector<std::string> &denyIPs = config.getDenyIPs();
-		// for (size_t j = 0; j < denyIPs.size(); ++j)
-		// {
-		//     std::cout << denyIPs[j];
-		//     if (j < denyIPs.size() - 1)
-		//         std::cout << ", ";
-		// }
-		// std::cout << std::endl;
+		const std::map<std::string, ServerConfigLocation> &locations = config.getLocations();
+		for (std::map<std::string, ServerConfigLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
+		{
+			std::cout << "  Location: " << it->first << std::endl;
+			it->second.printLocationConfig();
+		}
+
+		std::cout << std::endl;
 	std::cout << std::endl;
 	std::cout << std::endl;
 }

@@ -26,6 +26,8 @@ MANDATORY 	=	src/main.cpp \
 				src/Client.cpp \
 				src/CGI.cpp \
 				src/HTTPRequest.cpp \
+				src/Response.cpp \
+				src/ErrorPage.cpp \
 				src/Utilities.cpp \
 				# src/HttpRequest.cpp
 SRC 		=	$(MANDATORY)
@@ -46,8 +48,12 @@ $(NAME): $(OBJS)
  # -OFast -funroll-loops -finline-functions
 	@echo "$(GREEN)$(BOLD)$(REVERSE) ****\\\$(NAME) compiled!/****$(RESET)"
 
-#siege:
-#	siege -c 10 -t 1M http://localhost:8080
+siege:
+	siege -c4 -t10s http://0.0.0.0:8080
+	# siege -c10 -t30s http://0.0.0.0:8080
+	# siege -c50 -r100 http://0.0.0.0:8080
+
+# ipv6 testing:  curl --http1.1 -g -6 "http://[::1]:8080"
 
 clean:
 	@rm -rf $(OBJS)

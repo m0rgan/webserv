@@ -18,6 +18,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 const std::string DEFAULT_CONFIG = "default.conf"; //check if correct
 
@@ -28,8 +29,8 @@ private:
 
 public:
 	ConfigFile(const std::string &configFile);
-	ConfigFile(const ConfigFile &other);
-	ConfigFile &operator=(const ConfigFile &other);
+	ConfigFile(const ConfigFile &src);
+	ConfigFile &operator=(const ConfigFile &rhs);
 	~ConfigFile();
 
 	const std::vector<ServerConfig> &getServers() const;

@@ -70,8 +70,8 @@ std::string unchunk(const std::string &chunkedBody)
 		std::string line;
 		if (!getline(ss, line))
 			break;
-		if (!line.empty() && line.back() == '\r') // remove trailing CR
-			line.pop_back();
+		if (!line.empty() && line[line.size() - 1] == '\r') // remove trailing CR
+			line.erase(line.size() - 1);
 
 		size_t chunkSize = 0;
 		try
@@ -120,15 +120,15 @@ void CGI::parser(const HTTPRequest &http, const std::string serverRoot)
 
 	// unchunk body so CGI gets EOF as end of input
 	_requestBody = http.request.body;
-	std::unordered_map<std::string, std::string>::const_iterator it = http.request.headers.find("Transfer-Encoding");
+	std::map<std::string, std::string>::const_iterator it = http.request.headers.find("Transfer-Encoding");
 	if (it != http.request.headers.end() && it->second == "chunked")
 		_requestBody = unchunk(http.request.body);
 }
 
 void CGI::execute(const HTTPRequest &http)
 {
-	const std::string serverRoot = "/var/www";              // must change to dynamic decision
-	const std::string cgiProgram = "/usr/bin/php-cgi";    // must change to dynamic decision
+	const std::string serverRoot = "/var/www"; // must change to dynamic decision
+	const std::string cgiProgram = "/usr/bin/php-cgi"; // must change to dynamic decision
 	parser(http, serverRoot);
 	int pipe_in[2];  // for input to CGI
 	int pipe_out[2]; // for output from CGI

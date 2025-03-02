@@ -18,30 +18,35 @@
 #include <vector>
 #include <iostream>
 #include <csignal>
+#include <map>
+#include <list>
+#include <unistd.h>
 
-#define TIMEOUT 5000 // may be deleted
+#define POLL_TIMEOUT 5000
 
 class ServerLauncher
 {
 	private:
-		std::vector<Server*>		_servers;
-		std::vector<ServerConfig>	_serverBlocks;
-		std::map<int, Server*>		_socketServer;
-		std::vector<pollfd>			_pollfds;
-		void						socketsList();
-
+		std::map<int, Server*>	_servers;
+		std::map<int, Client*>	_clients;
+		std::vector<pollfd>		_pollfds;
+		
+		void initServers(const std::string &configFile);
+		void dispatchEvents();
+		void newClient(int serverFd);
+		void existingClient(int clientFd);
+		void closeClient(int clientFd);
+		void cleanupSockets();
+		void loop();
+		
 	public:
 		ServerLauncher(void);
 		ServerLauncher(const std::string &configFile);
-		ServerLauncher(const ServerLauncher &src);
-		ServerLauncher &operator=(const ServerLauncher &rhs);
+		ServerLauncher(ServerLauncher const &src);
+		ServerLauncher &operator=(ServerLauncher const &rhs);
 		~ServerLauncher(void);
-
-		void loop();
-		void dispatchEventToServer();
-		void cleanupSockets();
 		void stopServers();
-		// void restartServer(size_t index);
+
 };
 
 #endif

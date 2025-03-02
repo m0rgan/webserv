@@ -10,165 +10,182 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "ServerLauncher.hpp"
+	#include "ServerLauncher.hpp"
 
-static ServerLauncher* serverLauncherInstance = nullptr;
+	static ServerLauncher* serverLauncherInstance = NULL;
 
-void handleSIGINT(int sig)
-{
-	std::cerr << " -Caught signal " << sig << " - terminate ./webserv" << std::endl;
-	if (serverLauncherInstance)
-		serverLauncherInstance->stopServers();
-	kill(0, SIGTERM); // kill main process?
-}
-
-ServerLauncher::ServerLauncher(void) {}; //fix
-
-ServerLauncher::ServerLauncher(const std::string &configFile)
-{
-	serverLauncherInstance = this;
-	signal(SIGPIPE, SIG_IGN); //can be handled on recv or send?
-	signal(SIGINT, handleSIGINT); //make one macro signal handler?
-
-	ConfigFile parsedConfigFile(configFile);
-	parsedConfigFile.printConfig(); //delete its debug
-	_serverBlocks = parsedConfigFile.getServers();
-
-	size_t	i;
-	for (i = 0; i < _serverBlocks.size(); ++i)
+	void handleSIGINT(int sig)
 	{
-		std::cout << "Launching server: " << _serverBlocks[i].getName() << std::endl;
-		Server* server = new Server(_serverBlocks[i]);
-		_servers.push_back(server);
-		if (_servers.back()->sockets()) //change to try catch
-		{
-			delete _servers.back();
-			_servers.pop_back(); //handle bad server block and launch rest or? how does nginx do?
-			throw std::runtime_error("server->sockets");
-		}
-		const std::vector<pollfd> &sockets = _servers.back()->getSockets();
-		for (size_t j = 0; j < sockets.size(); ++j)
-			_socketServer[sockets[j].fd] = _servers.back();
+		std::cerr << "[SIGNAL] Caught signal " << sig << " - Shutting down server" << std::endl;
+		if (serverLauncherInstance)
+			serverLauncherInstance->stopServers();
+		kill(0, SIGTERM);
 	}
-}
+	ServerLauncher::ServerLauncher(void) {}; //fix
 
-ServerLauncher::ServerLauncher(const ServerLauncher &src)
-{
-	for (size_t i = 0; i < src._servers.size(); ++i)
-		_servers.push_back(new Server(*src._servers[i]));
-	_serverBlocks = src._serverBlocks;
-	_socketServer = src._socketServer;
-}
-
-ServerLauncher &ServerLauncher::operator=(const ServerLauncher &rhs)
-{
-	if (this != &rhs)
+	ServerLauncher::ServerLauncher(const std::string &configFile)
 	{
-		for (size_t i = 0; i < _servers.size(); ++i)
-			delete _servers[i];
+		serverLauncherInstance = this;
+		signal(SIGPIPE, SIG_IGN); // Ignore SIGPIPE to prevent crashes on broken pipes
+		signal(SIGINT, handleSIGINT);
+
+		initServers(configFile);
+		loop();
+	}
+
+	void ServerLauncher::initServers(const std::string &configFile)
+	{
+		ConfigFile parsedConfigFile(configFile);
+		//try catch for configfile?
+		std::vector<ServerConfig> configs = parsedConfigFile.getServers();
+		std::vector<Server*> buffer;
+		for (size_t i = 0; i < configs.size(); ++i)
+		{
+			try
+			{
+				std::cout << "[INFO] Launching server: " << configs[i].getName() << std::endl;
+				buffer.push_back(new Server(configs[i]));
+				//handle new error?
+				if (buffer.back()->sockets())
+				{
+					delete buffer.back();
+					buffer.pop_back();
+					throw std::runtime_error("Server socket setup failed.");
+				}
+
+				const std::vector<pollfd> &serverSockets = buffer.back()->getSockets();
+				for (size_t j = 0; j < serverSockets.size(); ++j)
+				{
+					if (_servers.find(serverSockets[j].fd) != _servers.end())
+					{
+						std::cerr << "[ERROR] Failed to bind and listen on " << serverSockets[j].fd << std::endl;
+						delete buffer.back();
+						buffer.pop_back();
+						throw std::runtime_error("Server socket setup failed.");
+					}
+					_pollfds.push_back(serverSockets[j]);
+					_servers[serverSockets[j].fd] = buffer.back();
+				}
+			}
+			catch (const std::exception &e)
+			{
+				std::cerr << "[ERROR] Failed to launch server: " << e.what() << std::endl;
+			}
+		}
+	}
+
+	ServerLauncher::~ServerLauncher()
+	{
+		stopServers();
+	}
+
+	void ServerLauncher::loop()
+	{
+		for (;;)
+		{
+			int readyEvents = poll(_pollfds.data(), _pollfds.size(), POLL_TIMEOUT);
+			if (readyEvents == -1)
+			{
+				std::cerr << "[ERROR] poll() failed: " << strerror(errno) << std::endl;
+				break;
+			}
+			else if (readyEvents == 0)
+				continue;
+			dispatchEvents();
+		}
+		cleanupSockets();
+	}
+
+	void ServerLauncher::dispatchEvents()
+	{
+		for (size_t i = 0; i < _pollfds.size(); ++i)
+		{
+			int fd = _pollfds[i].fd;
+			if (_pollfds[i].revents & POLLIN)
+			{
+				if (_servers.find(fd) != _servers.end())
+					newClient(fd);
+				else
+					existingClient(fd);
+				break;
+			}
+			if (_pollfds[i].revents & POLLOUT)
+			{
+				if (_clients.find(fd) != _clients.end())
+					if (_clients[fd]->hasPendingData())
+						_clients[fd]->writeResponse();
+			}
+		}
+	}
+
+	void ServerLauncher::newClient(int serverFd)
+	{
+		Server* server = _servers[serverFd];
+
+		if (!server)
+		{
+			std::cerr << "[ERROR] No server found for FD: " << serverFd << std::endl;
+			return;
+		}
+
+		int clientFd = server->acceptClient(serverFd);
+		if (clientFd > 0)
+		{
+			pollfd clientPollfd = {clientFd, POLLIN | POLLOUT, 0};
+			_pollfds.push_back(clientPollfd);
+			_clients[clientFd] = new Client(clientFd, server->getConfig());
+		}
+	}
+
+	void ServerLauncher::existingClient(int clientFd)
+	{
+		Client* client = _clients[clientFd];
+
+		if (!client)
+		{
+			std::cerr << "[ERROR] No client found for FD: " << clientFd << std::endl;
+			return;
+		}
+		try
+		{
+			client->readRequest();
+			client->handleRequest();
+			// cookie and multiple cgi management.. do bonus or skip?
+		}
+		catch (const std::exception &e)
+		{
+			std::cerr << "[ERROR] Client error: " << e.what() << std::endl;
+			closeClient(clientFd);
+		}
+	}
+
+	void ServerLauncher::closeClient(int clientFd)
+	{
+		close(clientFd);
+		for (size_t i = 0; i < _pollfds.size(); ++i)
+		{
+			if (_pollfds[i].fd == clientFd)
+			{
+				_pollfds.erase(_pollfds.begin() + i);
+				break;
+			}
+		}
+		if (_clients.find(clientFd) != _clients.end())
+		{
+			delete _clients[clientFd];
+			_clients.erase(clientFd);
+		}
+	}
+
+	void ServerLauncher::cleanupSockets()
+	{
+		for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
+			close(it->first);
+	}
+
+	void ServerLauncher::stopServers()
+	{
+		for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
+			delete it->second;
 		_servers.clear();
-
-		for (size_t i = 0; i < rhs._servers.size(); ++i)
-			_servers.push_back(new Server(*rhs._servers[i]));
-		_serverBlocks = rhs._serverBlocks;
-		_socketServer = rhs._socketServer;
 	}
-	return (*this);
-}
-
-ServerLauncher::~ServerLauncher(void)
-{
-	for (size_t i = 0; i < _servers.size(); ++i)
-		delete _servers[i];
-	_servers.clear();
-}
-
-void ServerLauncher::loop()
-{
-	int	readyEvents;
-
-	signal(SIGURG, SignalHandler::handleUrgentData);
-	for (;;)
-	{
-		socketsList();
-		readyEvents = poll(_pollfds.data(), _pollfds.size(), 0); // or TIMEOUT?
-		if (readyEvents == -1)
-		{
-			std::cerr << "poll: " << strerror(errno) << std::endl;
-			break;
-		}
-		dispatchEventToServer();
-	}
-	cleanupSockets();
-}
-
-void ServerLauncher::socketsList()
-{
-	size_t				i;
-	size_t				j;
-	std::vector<pollfd> socketsList;
-
-	_pollfds.clear();
-	_socketServer.clear();	
-	for (i = 0; i < _servers.size(); ++i)
-	{
-		socketsList = _servers[i]->getSockets();
-		for (j = 0; j < socketsList.size(); ++j)
-		{
-			pollfd pfd = socketsList[j];
-			_pollfds.push_back(pfd);
-			_socketServer[pfd.fd] = _servers[i];
-		}
-	}
-}
-
-void ServerLauncher::dispatchEventToServer()
-{
-	Server	*serverBuffer;
-	size_t	i;
-
-	for (i = 0; i < _pollfds.size(); ++i)
-	{
-		if (_pollfds[i].revents & POLLIN)
-		{
-			serverBuffer = _socketServer[_pollfds[i].fd];
-			serverBuffer->handleEvent(_pollfds[i]);
-		}
-	}
-}
-
-void ServerLauncher::cleanupSockets()
-{
-	for (std::map<int, Server*>::iterator it = _socketServer.begin(); it != _socketServer.end(); ++it)
-		close(it->first);
-}
-
-void ServerLauncher::stopServers()
-{
-	for (size_t i = 0; i < _servers.size(); ++i)
-		delete _servers[i];
-	_servers.clear();
-}
-
-// void ServerLauncher::restartServer(size_t index)
-// {
-// 	if (index >= _servers.size())
-// 	{
-// 		std::cerr << "Invalid server index: " << index << std::endl;
-// 		return;
-// 	}
-// 	delete _servers[index];
-// 	try
-// 	{
-// 		_servers[index] = new Server(_servers[index]->getConfig());
-// 		if (_servers[index]->sockets(_servers[index]->getConfig().getPorts()))
-// 		{
-// 			throw std::runtime_error("Failed to restart server");
-// 		}
-// 	}
-// 	catch (const std::exception &e)
-// 	{
-// 		std::cerr << "Error restarting server: " << e.what() << std::endl;
-// 		_servers[index] = nullptr; // Mark as inactive
-// 	}
-// }

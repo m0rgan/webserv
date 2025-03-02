@@ -21,7 +21,6 @@ int main(int argc, char *argv[])
 	try
 	{
 		ServerLauncher webserv(configFile);
-		webserv.loop();
 	}
 	catch (const std::exception &e)
 	{

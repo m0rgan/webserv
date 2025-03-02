@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/25 15:16:44 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/25 15:16:44 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/02/26 22:50:36 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,7 +27,6 @@ ServerConfig &ServerConfig::operator=(const ServerConfig &rhs)
 		this->_root = rhs._root;
 		this->_errorPages = rhs._errorPages;
 		this->_locations = rhs._locations;
-		this->_cgiExtension = rhs._cgiExtension;
 		this->_indexFiles = rhs._indexFiles;
 		this->_autoIndex = rhs._autoIndex;
 		this->_maxBodySize = rhs._maxBodySize;
@@ -40,34 +39,33 @@ ServerConfig &ServerConfig::operator=(const ServerConfig &rhs)
 
 ServerConfig::~ServerConfig() {}
 
+void ServerConfig::addPort(int port) { _ports.push_back(port); }
 const std::vector<int> &ServerConfig::getPorts() const { return this->_ports; }
+void ServerConfig::addHost(std::string host) { _hosts.push_back(host); }
 const std::vector<std::string> &ServerConfig::getHosts() const { return this->_hosts; }
+void ServerConfig::setServerName(const std::string &name) { _name = name; }
 const std::string &ServerConfig::getName() const { return this->_name; }
+void ServerConfig::setRoot(const std::string &root) { _root = root; }
 const std::string &ServerConfig::getRoot() const { return this->_root; }
+void ServerConfig::addErrorPage(int errorCode, const std::string &pagePath){_errorPages[errorCode] = pagePath;}
 const std::map<int, std::string> &ServerConfig::getErrorPages() const { return this->_errorPages; }
+void ServerConfig::addLocation(const ServerConfigLocation &location){_locations[location.getURI()] = location;}
 const std::map<std::string, ServerConfigLocation> &ServerConfig::getLocations() const { return this->_locations; }
+void ServerConfig::setAutoIndex(bool enabled) { _autoIndex = enabled; }
+bool ServerConfig::getAutoIndex() const { return this->_autoIndex; }
+void ServerConfig::addIndexFile(const std::string &file) { _indexFiles.push_back(file); }
 const std::vector<std::string> &ServerConfig::getIndexFiles() const { return this->_indexFiles; }
+void ServerConfig::setMaxBodySize(int size) { _maxBodySize = size; }
 int ServerConfig::getMaxBodySize() const { return this->_maxBodySize; }
-
+void ServerConfig::setLogAccessFile(const std::string &path) { _logAccessFile = path; }
 const std::string &ServerConfig::getLogAccessFile() const { return this->_logAccessFile; }
+void ServerConfig::setLogErrorFile(const std::string &path) { _logErrorFile = path; }
 const std::string &ServerConfig::getLogErrorFile() const { return this->_logErrorFile; }
+void ServerConfig::addRedirect(const std::string &from, const std::string &to) { _redirects[from] = to; }
 const std::map<std::string, std::string> &ServerConfig::getRedirects() const { return this->_redirects; }
+void ServerConfig::addHostPort(const std::string &host, int port) {_hostPort.push_back(std::make_pair(host, port));}
 const std::vector<std::pair<std::string, int> > &ServerConfig::getHostPort() const { return _hostPort; }
 
-void ServerConfig::addHostPort(const std::string &host, int port) {_hostPort.push_back(std::make_pair(host, port));}
-void ServerConfig::addPort(int port) { _ports.push_back(port); }
-void ServerConfig::addHost(std::string host) { _hosts.push_back(host); }
-void ServerConfig::setServerName(const std::string &name) { _name = name; }
-void ServerConfig::setRoot(const std::string &root) { _root = root; }
-void ServerConfig::addErrorPage(int errorCode, const std::string &pagePath){_errorPages[errorCode] = pagePath;}
-void ServerConfig::addLocation(const ServerConfigLocation &location){_locations[location.getURI()] = location;}
-void ServerConfig::setCgiExtension(const std::string &ext) { _cgiExtension = ext; }
-void ServerConfig::addIndexFile(const std::string &file) { _indexFiles.push_back(file); }
-void ServerConfig::setAutoIndex(bool enabled) { _autoIndex = enabled; }
-void ServerConfig::setMaxBodySize(int size) { _maxBodySize = size; }
-void ServerConfig::setLogAccessFile(const std::string &path) { _logAccessFile = path; }
-void ServerConfig::setLogErrorFile(const std::string &path) { _logErrorFile = path; }
-void ServerConfig::addRedirect(const std::string &from, const std::string &to) { _redirects[from] = to; }
 
 void ServerConfig::printConfig() const
 {
@@ -94,9 +92,6 @@ void ServerConfig::printConfig() const
 	std::cout << "Root Directory: " << _root << std::endl;
 	std::cout << "Auto Index: " << (_autoIndex ? "Enabled" : "Disabled") << std::endl;
 	std::cout << "Max Body Size: " << _maxBodySize << " bytes" << std::endl;
-
-	if (!_cgiExtension.empty())
-		std::cout << "CGI Extension: " << _cgiExtension << std::endl;
 
 	std::cout << "Index Files: ";
 	for (size_t i = 0; i < _indexFiles.size(); i++)

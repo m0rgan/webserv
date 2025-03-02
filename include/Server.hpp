@@ -27,46 +27,37 @@
 #include <map> //map
 
 
-struct ClientState
-{
-    std::string response;
-    size_t bytesSent;
-};
 class Server
 {
 	private:
-		std::string				_name;
-		std::vector<int>		_ports;
-		std::vector<std::string>_hosts;
-		std::vector<pollfd> 	_fds;
-		int						_nfds;
-		struct protoent			*_proto;
-		ServerConfig			_currentConfig;
-		std::map<int, Client*>	_clients;
+		std::string									_name;
+		std::vector<int>							_ports;
+		std::vector<std::string>					_hosts;
+		std::vector<std::pair <std::string, int> > 	_hostPort;
+		std::vector<pollfd> 						_fds;
+		int											_nfds;
+		struct protoent								*_proto;
+		ServerConfig								_currentConfig;
+		
 
-		int		createSocket();
+		int		createSocket(int family);
 		int		configureSocket(int serverSocket);
+		int		getAddressProtocol(const std::string &host);
 		int		bindAndListen(int serverSocket, const std::string &host, int port);
 		void	addToPollList(int serverSocket);
-
-		int		newClient(int index);
-		int		existingClient(int index);
-		void	closeClient(int index);
-		void	cleanupSockets();
-
 		
-	public:
+		public:
 		Server(void);
 		Server(Server const &src);
 		Server &operator=(Server const &rhs);
 		~Server(void);
-
+		
 		Server(const ServerConfig &config);
+		int		acceptClient(int index);
 		const ServerConfig& getConfig() const;
 		const std::string getName() const;
 		const std::vector<int> getPorts() const;
 		const std::vector<std::string> getHosts() const;
-		void	handleEvent(const pollfd &pfd);
 		int		sockets();
 		const std::vector<pollfd> &getSockets() const;
 };
