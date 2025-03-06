@@ -19,6 +19,7 @@
 #include <ServerConfig.hpp>
 
 #include <Client.hpp>
+#include <EPoll.hpp>
 #include <netdb.h> //getprotobyname
 #include <fcntl.h> //fcntl
 #include <poll.h> //pollfd
@@ -26,16 +27,13 @@
 #include <fstream> //istringstream
 #include <map> //map
 
-
 class Server
 {
 	private:
-		std::string									_name;
 		std::vector<int>							_ports;
 		std::vector<std::string>					_hosts;
 		std::vector<std::pair <std::string, int> > 	_hostPort;
 		std::vector<pollfd> 						_fds;
-		int											_nfds;
 		struct protoent								*_proto;
 		ServerConfig								_currentConfig;
 		
@@ -44,7 +42,7 @@ class Server
 		int		configureSocket(int serverSocket);
 		int		getAddressProtocol(const std::string &host);
 		int		bindAndListen(int serverSocket, const std::string &host, int port);
-		void	addToPollList(int serverSocket);
+		void	addToFDList(int serverSocket);
 		
 		public:
 		Server(void);
@@ -55,11 +53,9 @@ class Server
 		Server(const ServerConfig &config);
 		int		acceptClient(int index);
 		const ServerConfig& getConfig() const;
-		const std::string getName() const;
-		const std::vector<int> getPorts() const;
-		const std::vector<std::string> getHosts() const;
 		int		sockets();
 		const std::vector<pollfd> &getSockets() const;
+		void addSocketsToEpoll(EPoll &epoll);
 };
 
 #endif

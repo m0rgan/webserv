@@ -30,12 +30,13 @@ class ServerConfig
 		std::string 								_root;
 		std::map<int, std::string>					_errorPages;
 		int											_maxBodySize;
-		std::map<std::string, std::string>			_redirects;
 		std::map<std::string, ServerConfigLocation>	_locations;
 		std::vector<std::string>					_indexFiles;
 		bool										_autoIndex;
 		std::string									_logAccessFile;
 		std::string									_logErrorFile;
+		std::pair<int, std::string> 				_returnDirective;
+	    bool 										_hasReturnDirective;
 
 	public:
 		ServerConfig(void);
@@ -54,9 +55,8 @@ class ServerConfig
 		int getMaxBodySize() const;
 		const std::string &getLogAccessFile() const;
 		const std::string &getLogErrorFile() const;
-		const std::map<std::string, std::string> &getRedirects() const;
 		bool getAutoIndex() const;
-
+		
 		void addHostPort(const std::string &host, int port); // Set host:port
 		void addPort(int port);
 		void addHost(std::string host);
@@ -69,8 +69,12 @@ class ServerConfig
 		void setMaxBodySize(int size);
 		void setLogAccessFile(const std::string &path);
 		void setLogErrorFile(const std::string &path);
-		void addRedirect(const std::string &from, const std::string &to);
-
+		void addReturnDirective(int statusCode, const std::string &url);
+		bool hasReturnDirective() const;
+		int getReturnStatusCode() const;
+		const std::string &getReturnUrl() const;
+		const std::pair<int, std::string> &getReturnDirective() const;
+		
 		void printConfig() const;
 };
 

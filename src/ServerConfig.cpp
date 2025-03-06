@@ -12,7 +12,7 @@
 
 #include "ServerConfig.hpp"
 
-ServerConfig::ServerConfig() : _maxBodySize(0), _autoIndex(false) {}
+ServerConfig::ServerConfig() : _maxBodySize(0), _autoIndex(false), _hasReturnDirective(false) {}
 
 ServerConfig::ServerConfig(const ServerConfig &src){*this = src;} //FIX
 
@@ -32,7 +32,8 @@ ServerConfig &ServerConfig::operator=(const ServerConfig &rhs)
 		this->_maxBodySize = rhs._maxBodySize;
 		this->_logAccessFile = rhs._logAccessFile;
 		this->_logErrorFile = rhs._logErrorFile;
-		this->_redirects = rhs._redirects;
+		this->_returnDirective = rhs._returnDirective;
+		this->_hasReturnDirective = rhs._hasReturnDirective;
 	}
 	return (*this);
 }
@@ -61,8 +62,15 @@ void ServerConfig::setLogAccessFile(const std::string &path) { _logAccessFile = 
 const std::string &ServerConfig::getLogAccessFile() const { return this->_logAccessFile; }
 void ServerConfig::setLogErrorFile(const std::string &path) { _logErrorFile = path; }
 const std::string &ServerConfig::getLogErrorFile() const { return this->_logErrorFile; }
-void ServerConfig::addRedirect(const std::string &from, const std::string &to) { _redirects[from] = to; }
-const std::map<std::string, std::string> &ServerConfig::getRedirects() const { return this->_redirects; }
+void ServerConfig::addReturnDirective(int statusCode, const std::string &url)
+{
+    _returnDirective = std::make_pair(statusCode, url);
+    _hasReturnDirective = true;
+}
+bool ServerConfig::hasReturnDirective() const {return _hasReturnDirective;}
+int ServerConfig::getReturnStatusCode() const {return _returnDirective.first;}
+const std::string &ServerConfig::getReturnUrl() const {return _returnDirective.second;}
+const std::pair<int, std::string> &ServerConfig::getReturnDirective() const {return _returnDirective;}
 void ServerConfig::addHostPort(const std::string &host, int port) {_hostPort.push_back(std::make_pair(host, port));}
 const std::vector<std::pair<std::string, int> > &ServerConfig::getHostPort() const { return _hostPort; }
 
@@ -107,19 +115,18 @@ void ServerConfig::printConfig() const
 	std::cout << "  Access Log: " << _logAccessFile << std::endl;
 	std::cout << "  Error Log: " << _logErrorFile << std::endl;
 
-	std::cout << "Redirections: ";
-	for (std::map<std::string, std::string>::const_iterator it = _redirects.begin(); it != _redirects.end(); ++it)
-		std::cout << it->first << " -> " << it->second << " ";
-	std::cout << std::endl;
+	//need to print returns 
+	// std::cout << "Redirections: ";
+	// for (std::map<std::string, std::string>::const_iterator it = _redirects.begin(); it != _redirects.end(); ++it)
+	// 	std::cout << it->first << " -> " << it->second << " ";
+	// std::cout << std::endl;
 
 	std::cout << "=================================" << std::endl;
 	std::cout << "Location Blocks:" << std::endl;
 	std::cout << "=================================" << std::endl;
 	
 	for (std::map<std::string, ServerConfigLocation>::const_iterator it = _locations.begin(); it != _locations.end(); ++it)
-	{
 		it->second.printLocationConfig();
-	}
 
 	std::cout << "=================================" << std::endl;
 }

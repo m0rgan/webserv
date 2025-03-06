@@ -12,11 +12,7 @@
 
 #include "Utilities.hpp"
 
-Utilities::Utilities(void){}
-
-Utilities::~Utilities(void){}
-
-std::string Utilities::getMimeType(const std::string &extension) const
+std::string getMimeType(const std::string &extension)
 {
 	static std::map<std::string, std::string> mimeTypes;
 	if (mimeTypes.empty())
@@ -121,4 +117,32 @@ std::string Utilities::getMimeType(const std::string &extension) const
 	if (iterator != mimeTypes.end())
 		return (iterator->second);
 	return ("application/octet-stream");
+}
+
+std::string getCurrentTimestamp()
+{
+	std::time_t now = std::time(NULL);
+	std::tm *ltm = std::localtime(&now);
+	char buffer[20];
+	std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", ltm);
+	return (std::string(buffer));
+}
+
+static inline void trimWhitespaces(std::string &s)
+{
+	s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+	s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
+
+unsigned long stringTUL(const std::string &str)
+{
+	std::string trimmedStr = str;
+	trimWhitespaces(trimmedStr);
+
+	std::stringstream ss(trimmedStr);
+	unsigned long result;
+	ss >> result;
+	if (ss.fail() || !ss.eof())
+		throw std::invalid_argument("Invalid input string");
+	return (result);
 }

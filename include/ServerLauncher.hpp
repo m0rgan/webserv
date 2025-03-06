@@ -13,40 +13,35 @@
 #ifndef SERVERLAUNCHER_HPP
 #define SERVERLAUNCHER_HPP
 
-#include "Server.hpp"
-#include "ConfigFile.hpp"
 #include <vector>
-#include <iostream>
-#include <csignal>
 #include <map>
-#include <list>
-#include <unistd.h>
+#include <iostream>
+#include <signal.h>
+#include "Server.hpp"
+#include "Client.hpp"
+#include "ConfigFile.hpp"
+#include "EPoll.hpp"
 
-#define POLL_TIMEOUT 5000
+#define DEFAULT_CONFIG "default.conf"
 
 class ServerLauncher
 {
 	private:
 		std::map<int, Server*>	_servers;
 		std::map<int, Client*>	_clients;
-		std::vector<pollfd>		_pollfds;
-		
-		void initServers(const std::string &configFile);
-		void dispatchEvents();
+		EPoll					_epoll;
+
 		void newClient(int serverFd);
 		void existingClient(int clientFd);
 		void closeClient(int clientFd);
-		void cleanupSockets();
-		void loop();
-		
+
 	public:
 		ServerLauncher(void);
 		ServerLauncher(const std::string &configFile);
-		ServerLauncher(ServerLauncher const &src);
-		ServerLauncher &operator=(ServerLauncher const &rhs);
 		~ServerLauncher(void);
+		void initServers(const std::string &configFile);
+		void loop();
 		void stopServers();
-
 };
 
 #endif

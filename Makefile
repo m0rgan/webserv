@@ -24,9 +24,10 @@ MANDATORY 	=	src/main.cpp \
 				src/SignalHandler.cpp \
 				src/Server.cpp \
 				src/Client.cpp \
+				src/EPoll.cpp \
 				src/CGI.cpp \
 				src/HTTPRequest.cpp \
-				src/Response.cpp \
+				src/HTTPResponse.cpp \
 				src/ErrorPage.cpp \
 				src/Utilities.cpp \
 				# src/HttpRequest.cpp

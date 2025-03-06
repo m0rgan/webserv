@@ -28,13 +28,14 @@ private:
 	std::vector<ServerConfig> _serverBlockConfig; // Stores parsed servers
 
 public:
-	ConfigFile(const std::string &configFile);
+	ConfigFile();
 	ConfigFile(const ConfigFile &src);
 	ConfigFile &operator=(const ConfigFile &rhs);
 	~ConfigFile();
 
 	const std::vector<ServerConfig> &getServers() const;
 	
+	void process(const std::string &configFile);
 	std::vector<ServerConfig> parser(const std::string &configFile);
 	ServerConfig parseServerBlock(std::ifstream &file);
 	bool isDuplicateServer(const std::vector<ServerConfig> &servers, const ServerConfig &newServer);

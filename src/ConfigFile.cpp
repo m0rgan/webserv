@@ -12,7 +12,9 @@
 
 #include <ConfigFile.hpp>
 
-ConfigFile::ConfigFile(const std::string &configFile)
+ConfigFile::ConfigFile() {}
+
+void ConfigFile::process(const std::string &configFile)
 {
 	_serverBlockConfig = parser(configFile);
 }
@@ -73,6 +75,11 @@ std::vector<ServerConfig> ConfigFile::parser(const std::string &filename)
 			continue; // Skip empty lines
 		if (key == "server")
 		{
+			std::string remaining;
+			if (lineStream >> remaining && remaining != "{")
+				throw std::runtime_error("Invalid syntax, expected {");
+			if (lineStream >> remaining)
+				throw std::runtime_error("Invalid syntax after {");
 			ServerConfig newServer = parseServerBlock(file);
 			if (!isDuplicateServer(parsedServers, newServer))
 				parsedServers.push_back(newServer);
@@ -85,6 +92,7 @@ ServerConfig ConfigFile::parseServerBlock(std::ifstream &file)
 {
 	ServerConfig serverConfig;
 	std::string line;
+	bool hasListenDirective = false;
 
 	while (std::getline(file, line))
 	{
@@ -94,16 +102,29 @@ ServerConfig ConfigFile::parseServerBlock(std::ifstream &file)
 		if (!(lineStream >> key))
 			continue; // Skip empty lines
 		if (key == "}")
+		{
+			if (!hasListenDirective)
+				parseListenDirective("80", serverConfig);
 			break; // End of server block
+		}
 		if (key == "location")
 		{
 			std::string locationPath;
 			lineStream >> locationPath;
+			std::string remaining;
+			if (lineStream >> remaining && remaining != "{")
+				throw std::invalid_argument("Invalid syntax, expected {");
+			if (lineStream >> remaining)
+				throw std::runtime_error("Invalid syntax after {");
 			ServerConfigLocation location = parseLocationBlock(file, locationPath);
 			serverConfig.addLocation(location);
 		}
 		else
+		{
+			if (key == "listen")
+				hasListenDirective = true;
 			serverParseKeyValue(lineStream, key, serverConfig);
+		}
 	}
 	return (serverConfig);
 }
@@ -240,12 +261,15 @@ void ConfigFile::serverParseKeyValue(std::istringstream &lineStream, const std::
 		lineStream >> path;
 		serverConfig.setLogErrorFile(path);
 	}
-	else if (key == "redirect")
+	else if (key == "return")
 	{
-		std::string from, to;
-		lineStream >> from >> to;
-		serverConfig.addRedirect(from, to);
+		int statusCode;
+		std::string redirectUrl;
+		lineStream >> statusCode >> redirectUrl;
+		serverConfig.addReturnDirective(statusCode, redirectUrl);
 	}
+	else
+		throw std::invalid_argument("Unknown directive '" + key + "' in server configuration.");
 }
 
 void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std::string &key, ServerConfigLocation &locationConfig)
@@ -280,6 +304,15 @@ void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std
 		lineStream >> proxyPass;
 		locationConfig.setProxyPass(proxyPass);
 	}
+	else if (key == "return")
+	{
+		int statusCode;
+		std::string redirectUrl;
+		lineStream >> statusCode >> redirectUrl;
+		locationConfig.addReturnDirective(statusCode, redirectUrl);
+	}
+	else
+		throw std::invalid_argument("Unknown directive '" + key + "' in server configuration.");
 }
 
 // 5. Exposing Nginx to the Internet
@@ -342,10 +375,10 @@ void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std
 std::string &ConfigFile::ignoreComments(std::string &line)
 {
 	std::istringstream input(line);
-	std::getline(input, line, ';');
+	std::getline(input, line, '#');
 	input.clear();
 	input.str(line);
-	std::getline(input, line, '#');
+	std::getline(input, line, ';');
 	return (line);
 }
 
@@ -409,23 +442,16 @@ void ConfigFile::printConfig() const
 		std::cout << "  Max Body Size: " << config.getMaxBodySize() << std::endl;
 		std::cout << "  Log Access File: " << config.getLogAccessFile() << std::endl;
 		std::cout << "  Log Error File: " << config.getLogErrorFile() << std::endl;
-		std::cout << "  Redirects: ";
-		const std::map<std::string, std::string> &redirects = config.getRedirects();
-		for (std::map<std::string, std::string>::const_iterator it = redirects.begin(); it != redirects.end(); ++it)
+		std::cout << "  Return Directives: ";
+		if (config.hasReturnDirective())
 		{
-			std::cout << it->first << " -> " << it->second;
-			std::map<std::string, std::string>::const_iterator nxt = it;
-			++nxt;
-			if (nxt != redirects.end())
-				std::cout << ", ";
+			const std::pair<int, std::string> &returnDirective = config.getReturnDirective();
+			std::cout << returnDirective.first << " -> " << returnDirective.second;
 		}
 		std::cout << std::endl;
 		const std::map<std::string, ServerConfigLocation> &locations = config.getLocations();
 		for (std::map<std::string, ServerConfigLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
-		{
-			std::cout << "  Location: " << it->first << std::endl;
 			it->second.printLocationConfig();
-		}
 
 		std::cout << std::endl;
 	std::cout << std::endl;

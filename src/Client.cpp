@@ -14,10 +14,7 @@
 
 Client::Client(void) {} //tbd??
 
-Client::Client(int socket, const ServerConfig &config) : _clientSocket(socket), _bytesSent(0), _currentConfig(config)
-{
-	fcntl(_clientSocket, F_SETFL, O_NONBLOCK); //is this neccessary?
-}
+Client::Client(int socket, const ServerConfig &config) : _clientSocket(socket), _bytesSent(0), _currentConfig(config){}
 
 Client::Client(Client const &src) : _clientSocket(src._clientSocket), _requestBuffer(src._requestBuffer), _responseBuffer(src._responseBuffer), _bytesSent(src._bytesSent), _currentConfig(src._currentConfig)
 {
@@ -37,49 +34,99 @@ Client &Client::operator=(Client const &rhs) //must finish
 	return (*this);
 }
 
-Client::~Client()
+Client::~Client(){}
+
+HTTPRequest Client::readRequest()  //check return values to kill process??
 {
+	HTTPRequest	http;
+	char		buffer[1024];
+	int			bytesRead;
+	bool		headersRead = false;
 
-}
-
-
-int Client::getSocket() const
-{
-	return (_clientSocket);
-}
-
-void Client::readRequest() //check return values to kill process??
-{
-	char	buffer[1024];
-	int		bytesRead;
-
-	for (;;)
+	while (true)
 	{
 		bytesRead = recv(_clientSocket, buffer, sizeof(buffer) - 1, 0);
 		if (bytesRead > 0)
 		{
 			buffer[bytesRead] = '\0';
 			_requestBuffer.append(buffer, bytesRead);
-			if (_requestBuffer.find("\r\n\r\n") != std::string::npos)
+
+			if (!headersRead && _requestBuffer.find("\r\n\r\n") != std::string::npos)
+			{
+				headersRead = true;
+				http.parserHeaders(_requestBuffer);
+			}
+			if (headersRead && (lengthData(http) || chunkedData(http)))
 				break;
 		}
-		else if (bytesRead == 0) // connection closed by client
-			throw std::runtime_error(std::string("Connection closed by client: ") + strerror(errno));
-		else // recv returned -1
-			throw std::runtime_error(std::string("recv: error reading request: ") + strerror(errno));
+		else if (bytesRead == 0)
+		{
+			closeClient();
+			break;
+		}
+		else
+			break; // if i closeClient or send empty httprequest it doesnt work
 	}
+	if (http.request.headers.find("Connection") != http.request.headers.end() && http.request.headers["Connection"] == "close")
+		closeClient();
+	return (http);
 }
 
-void Client::handleRequest()
+bool Client::chunkedData(HTTPRequest &http)
 {
-	HTTPRequest	http; // constructor that parses?
+	if (http.request.headers.find("Transfer-Encoding") != http.request.headers.end() &&
+		http.request.headers["Transfer-Encoding"] == "chunked")
+	{
+		std::string body;
+		size_t headerEnd = _requestBuffer.find("\r\n\r\n") + 4;
+		while (true)
+		{
+			size_t chunkEnd = _requestBuffer.find("\r\n", headerEnd);
+			if (chunkEnd == std::string::npos)
+				return (false); // keep reading
+			std::string chunkSizeStr = _requestBuffer.substr(headerEnd, chunkEnd - headerEnd);
+			size_t chunkSize = stringTUL(chunkSizeStr);
+			headerEnd = chunkEnd + 2;
+			if (chunkSize == 0)
+				break; // finish reading
+			if (headerEnd + chunkSize > _requestBuffer.size())
+				return (false); // keep reading
+			body.append(_requestBuffer.substr(headerEnd, chunkSize));
+			headerEnd += chunkSize + 2;
+		}
+		http.request.body = body;
+		return (true); // everything read
+	}
+	return (false);
+}
+
+bool Client::lengthData(HTTPRequest &http)
+{
+	if (http.request.headers.find("Content-Length") != http.request.headers.end())
+	{
+		size_t contentLength = stringTUL(http.request.headers["Content-Length"]);
+		size_t headersEndPos = _requestBuffer.find("\r\n\r\n") + 4;
+		if (_requestBuffer.size() - headersEndPos >= contentLength)
+			return (http.parserBody(_requestBuffer.substr(headersEndPos, contentLength)), true); // everything read
+	}
+	return (false); //keep reading
+}
+
+void Client::handleRequest(HTTPRequest &http)
+{
 	CGI cgi;
 	
-	http.parser(_requestBuffer);
+	http.logRequest(getCurrentTimestamp());
 	// Request Processing
 	// If it’s a static file request, it locates the file and prepares a response.
-	// If it’s a proxy request, it forwards the request to a backend.
 	// If it’s a FastCGI request, it communicates with PHP/CGI.
+
+	const ServerConfigLocation *matchedLocation = matchLocation(http);
+	if (locationReturn(matchedLocation))
+		return;
+	if (serverReturn())
+		return;
+
 	try 
 	{
 		if (cgi.routeToCGI(http.request.uri))
@@ -91,17 +138,62 @@ void Client::handleRequest()
 	catch (const std::exception &e)
 	{
 		std::cerr << "CGI error " << e.what() << std::endl;
-		prepareResponse(500, "text/plain", "500 Internal Server Error");
+		serveErrorResponse(500);
 		return;
 	}
 	if (http.request.method == "GET")
 		handleGET(&http);
 	else if (http.request.method == "POST")
-		handlePOST(http.request.uri, http.request.body);
+		handlePOST(&http);
 	else if (http.request.method == "DELETE")
-		handleDELETE(http.request.uri);
+		handleDELETE(&http);
 	else
-		prepareResponse(405, "text/plain", "405 Method Not Allowed");
+		prepareErrorResponse(405, "text/plain", "405 Method Not Allowed");
+}
+
+const ServerConfigLocation* Client::matchLocation(const HTTPRequest &http) const
+{
+	const ServerConfigLocation *bestLocation = NULL;
+	const std::map<std::string, ServerConfigLocation> &locations = _currentConfig.getLocations();
+	for (std::map<std::string, ServerConfigLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
+		if (http.request.uri.find(it->first) == 0 && (bestLocation == NULL || it->first.length() > bestLocation->getURI().length()))
+			bestLocation = &it->second;
+	return (bestLocation);
+}
+
+bool Client::handleReturnDirective(int statusCode, const std::string &redirectUrl)
+{
+	if (ErrorPage::isErrorStatusCode(statusCode))
+	{
+		serveErrorResponse(statusCode);
+		return (true);
+	}
+	std::string body = "Redirecting to " + redirectUrl;
+	prepareResponse(statusCode, "text/plain", body, redirectUrl);
+	return (true);
+}
+
+bool Client::locationReturn(const ServerConfigLocation *location)
+{
+	if (location && location->hasReturnDirective())
+	{
+		int statusCode = location->getReturnStatusCode();
+		std::string redirect = location->getReturnUrl();
+		return (handleReturnDirective(statusCode, redirect));
+		
+	}
+	return (false);
+}
+
+bool Client:: serverReturn(void)
+{
+	if (_currentConfig.hasReturnDirective())
+	{
+		int statusCode = _currentConfig.getReturnStatusCode();
+		std::string redirect = _currentConfig.getReturnUrl();
+		return (handleReturnDirective(statusCode, redirect));
+	}
+	return (false);
 }
 
 void Client::closeClient()
@@ -110,23 +202,14 @@ void Client::closeClient()
 	{
 		close(_clientSocket);
 		_clientSocket = -1; // Mark as closed
-		std::cout << "[DEBUG] Client FD closed: " << _clientSocket << std::endl;
+		// std::cout << "[DEBUG] Client FD closed: " << _clientSocket << std::endl;
 	}
 }
 
-void Client::prepareResponse(int statusCode, const std::string &contentType, const std::string &body)
+int Client::getSocket() const
 {
-	Response response;
-	std::stringstream ss;
-	ss << body.size();
-	response.setStatus(statusCode)
-			.setHeader("Content-Type", contentType)
-			.setHeader("Content-Length", ss.str())
-			.setBody(body);
-
-	_responseBuffer = response.buildResponse();
+	return (_clientSocket);
 }
-
 
 bool Client::hasPendingData() const
 {
@@ -134,7 +217,6 @@ bool Client::hasPendingData() const
 		return (true);
 	return (_bytesSent < static_cast<ssize_t>(_responseBuffer.length()));
 }
-
 
 void Client::writeResponse()
 {
@@ -148,37 +230,31 @@ void Client::writeResponse()
 		written = send(_clientSocket, responseData + sent, total - sent, MSG_NOSIGNAL);
 		// MSG_OOB        0x1  /* process out-of-band data */
 		if (written == -1)
-			continue; // is this correct? if i cant check errno is this the only option?
+			continue;
 		if (written == 0)
 		{
-			std::cerr << "Connection closed by client." << std::endl;
-			closeClient();
+			closeClient(); // connection closed by client
 			return;
 		}
 		sent += written;
 		_bytesSent += written;
 	}
-	// if (_bytesSent >= total)
-		// closeClient();
-	// if (_bytesSent >= total)
-	// {
-	//     send(_clientSocket, "0\r\n\r\n", 5, MSG_NOSIGNAL);
-	//     closeClient();
-	// }
-	// 
-// 	if (_bytesSent == static_cast<ssize_t>(_responseBuffer.length()))
-// {
-//     std::cout << "[DEBUG] All data sent. Checking keep-alive..." << std::endl;
-//     if (_requestBuffer.find("Connection: keep-alive") != std::string::npos)
-//     {
-//         std::cout << "[DEBUG] Keeping connection alive for client: " << _clientSocket << std::endl;
-//     }
-//     else
-//     {
-//         std::cout << "[DEBUG] Closing client due to no keep-alive." << std::endl;
-//         closeClient();
-//     }
-// }
+	if (_bytesSent >= total)
+	{
+		if (_requestBuffer.find("Connection: keep-alive") != std::string::npos)
+		{
+			_responseBuffer.clear();
+			_bytesSent = 0;
+			_keepAlive = true;
+		}
+		else
+			closeClient();
+	}
+}
+
+bool Client::keepAlive() const
+{
+	return (_keepAlive);
 }
 
 void Client::handleGET(HTTPRequest	*http)
@@ -199,40 +275,192 @@ void Client::handleGET(HTTPRequest	*http)
 	size_t dotPos = filePath.find_last_of('.');
 	if (dotPos != std::string::npos)
 		fileExtension = filePath.substr(dotPos);
-	Utilities utils;
-	std::string mimeType = utils.getMimeType(fileExtension);
-	prepareResponse(200, mimeType, body);
+	std::string mimeType = getMimeType(fileExtension);
+	prepareResponse(200, mimeType, body, "");
+}
+
+void Client::handlePOST(HTTPRequest *http)
+{
+	std::string root = http->resolveFilePath(_currentConfig);
+
+	if (http->request.headers.find("Content-Type") != http->request.headers.end() &&
+		http->request.headers["Content-Type"].find("multipart/form-data") != std::string::npos)
+	{
+		std::string boundary = http->request.headers["Content-Type"].substr(http->request.headers["Content-Type"].find("boundary=") + 9);
+		boundary.erase(boundary.find_last_not_of(" \t\r\n") + 1);
+
+		std::string fullBoundary = "--" + boundary;
+		std::string closingBoundary = fullBoundary + "--";
+
+		size_t start = http->request.body.find(fullBoundary);
+		if (start == std::string::npos)
+		{
+			prepareErrorResponse(400, "text/plain", "400 Bad Request: Starting boundary not found");
+			return;
+		}
+		start += fullBoundary.length() + 2;
+
+		size_t end = http->request.body.find("\r\n" + closingBoundary, start);
+		if (end == std::string::npos)
+			end = http->request.body.find("\n" + closingBoundary, start);
+		if (end == std::string::npos)
+			end = http->request.body.find(closingBoundary, start);
+		if (end == std::string::npos)
+		{
+			prepareErrorResponse(400, "text/plain", "400 Bad Request: Ending boundary not found");
+			return;
+		}
+		std::string part = http->request.body.substr(start, end - start);
+		size_t headerEnd = part.find("\r\n\r\n");
+		if (headerEnd == std::string::npos)
+		{
+			prepareErrorResponse(400, "text/plain", "400 Bad Request: Could not find headers in part");
+			return;
+		}
+		headerEnd += 4;
+		std::string fileContent = part.substr(headerEnd);
+
+		size_t filenamePos = part.find("filename=\"");
+		if (filenamePos == std::string::npos)
+		{
+			prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename not found in Content-Disposition header");
+			return;
+		}
+		filenamePos += 10;
+		size_t filenameEnd = part.find("\"", filenamePos);
+		if (filenameEnd == std::string::npos)
+		{
+			prepareErrorResponse(400, "text/plain", "400 Bad Request: Invalid filename in Content-Disposition header");
+			return;
+		}
+		std::string filename = part.substr(filenamePos, filenameEnd - filenamePos);
+		std::string filePath = root + "/" + filename;
+
+		std::ofstream file(filePath.c_str(), std::ios::binary);
+		if (!file)
+		{
+			serveErrorResponse(500);
+			return;
+		}
+		file << fileContent;
+		file.close();
+	}
+	else
+	{
+		std::string filename = http->request.headers["X-Filename"];
+		filename.erase(std::remove(filename.begin(), filename.end(), '\r'), filename.end());
+		filename.erase(std::remove(filename.begin(), filename.end(), '\n'), filename.end());
+		filename.erase(std::remove(filename.begin(), filename.end(), '\''), filename.end());
+		if (filename.empty())
+		{
+			prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename header missing");
+			return;
+		}
+		std::string filePath = root + "/" + filename;
+		std::ofstream file(filePath.c_str(), std::ios::binary);
+		if (!file)
+		{
+			serveErrorResponse(500);
+			return;
+		}
+		file << http->request.body;
+		file.close();
+	}
+	prepareResponse(200, "text/plain", "File uploaded successfully\n", "");
+}
+
+void Client::handleDELETE(HTTPRequest *http)
+{
+	std::string root = http->resolveFilePath(_currentConfig);
+	std::string filename = http->request.headers["X-Filename"];
+	filename.erase(std::remove(filename.begin(), filename.end(), '\r'), filename.end());
+	filename.erase(std::remove(filename.begin(), filename.end(), '\n'), filename.end());
+	filename.erase(std::remove(filename.begin(), filename.end(), '\''), filename.end());
+	if (filename.empty())
+	{
+		prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename header missing");
+		return;
+	}
+	std::string filePath = root + "/" + filename;
+	if (std::remove(filePath.c_str()) == 0)
+		prepareResponse(200, "text/plain", "File deleted successfully", "");
+	else
+		serveErrorResponse(404);
+}
+
+void Client::prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirect = "")
+{
+	if (ErrorPage::isErrorStatusCode(statusCode))
+	{
+		serveErrorResponse(statusCode);
+		return;
+	}
+	HTTPResponse response;
+	std::stringstream ss;
+	ss << body.size();
+	response.setStatus(statusCode)
+			.setHeader("Content-Type", contentType)
+			.setHeader("Content-Length", ss.str())
+			.setBody(body);
+	if (!redirect.empty())
+	{
+		response.setHeader("Location", redirect)
+				.setHeader("Connection", "close");
+	}
+	_responseBuffer = response.toString();
+	response.logResponse(getCurrentTimestamp());
+}
+
+void Client::prepareErrorResponse(int statusCode, const std::string &contentType, const std::string &body)
+{
+	HTTPResponse response;
+	std::stringstream ss;
+	ss << body.size();
+	response.setStatus(statusCode)
+			.setHeader("Content-Type", contentType)
+			.setHeader("Content-Length", ss.str())
+			.setBody(body);
+
+	_responseBuffer = response.toString();
+	response.logResponse(getCurrentTimestamp());
 }
 
 void Client::serveErrorResponse(int statusCode)
 {
+	const std::map<int, std::string> &errorPages = _currentConfig.getErrorPages();
+	std::map<int, std::string>::const_iterator it = errorPages.find(statusCode);
+
+	if (it != errorPages.end())
+	{
+		std::string errorPagePath = it->second;
+		std::ifstream file(errorPagePath.c_str(), std::ios::binary);
+		if (file)
+		{
+			std::stringstream buffer;
+			buffer << file.rdbuf();
+			std::string body = buffer.str();
+			prepareErrorResponse(statusCode, "text/html", body);
+			return;
+		}
+		else
+			std::cerr << "Failed to open custom error page: " << errorPagePath << std::endl;
+	}
+
 	std::string errorPage = ErrorPage::generate(statusCode);
 	std::ifstream file(errorPage.c_str(), std::ios::binary);
-	std::stringstream buffer;
-	buffer << file.rdbuf();
-	std::string body = buffer.str();
-	prepareResponse(statusCode, "text/html", body);
-	ErrorPage::cleanup(errorPage);
-}
-
-
-void Client::handlePOST(const std::string &path, const std::string &body)
-{
-	if (path == "/submit")
+	if (file)
 	{
-		std::cout << "Received POST request with body: " << body << std::endl;
-		prepareResponse(200, "text/plain", "Data received successfully");
+		std::stringstream buffer;
+		buffer << file.rdbuf();
+		std::string body = buffer.str();
+		prepareErrorResponse(statusCode, "text/html", body);
+		ErrorPage::cleanup(errorPage);
 	}
 	else
-		serveErrorResponse(404);
-}
-
-void Client::handleDELETE(const std::string &path)
-{
-	std::string filePath = "." + path;
-	
-	if (std::remove(filePath.c_str()) == 0)
-		prepareResponse(200, "text/plain", "File deleted successfully");
-	else
-		serveErrorResponse(404);
+	{
+		std::string body = "<html><head><title>500 Internal Server Error</title></head>"
+						"<body><h1>500 Internal Server Error</h1>"
+						"<p>Something went wrong. Please try again later.</p></body></html>";
+		prepareErrorResponse(500, "text/html", body);
+	}
 }

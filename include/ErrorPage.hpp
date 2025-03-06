@@ -16,10 +16,13 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <cstdio>
+#include <map>
 
 class ErrorPage
 {
+	private:
+		static std::map<int, std::string> initErrorStatusCodes();
+		static const std::map<int, std::string> errorStatusCodes;
 	public:
 		ErrorPage(void);
 		ErrorPage(ErrorPage const &src);
@@ -27,6 +30,7 @@ class ErrorPage
 		~ErrorPage(void);
 		static std::string generate(int errorCode);
 		static void cleanup(const std::string &filePath);
+		static bool isErrorStatusCode(int statusCode);
 };
 
 #endif

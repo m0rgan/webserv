@@ -21,18 +21,19 @@
 class ServerConfigLocation
 {
 	private:
-		std::string									uri;
-		std::string									root;
-		std::vector<std::string>					indexFiles;
-		std::string									redirection;
-		bool										autoIndex;
-		std::map<int, std::string>					errorPages;
-		std::string									proxyPass;
-		int											maxBodySize;
-		std::vector<std::string>					allowedMethods;
-		std::map<std::string, std::string>			cgiHandlers;
-		std::map<std::string, std::string>			headers;
-		std::map<std::string, ServerConfigLocation>	nestedLocations;
+		std::string									_uri;
+		std::string									_root;
+		std::vector<std::string>					_indexFiles;
+		bool										_autoIndex;
+		std::map<int, std::string>					_errorPages;
+		std::string									_proxyPass;
+		int											_maxBodySize;
+		std::vector<std::string>					_allowedMethods;
+		std::map<std::string, std::string>			_cgiHandlers;
+		std::map<std::string, std::string>			_headers;
+		std::map<std::string, ServerConfigLocation>	_nestedLocations;
+		std::pair<int, std::string>					_returnDirective;
+    	bool										_hasReturnDirective;
 
 	public:
 		ServerConfigLocation();
@@ -59,8 +60,11 @@ class ServerConfigLocation
 		const std::map<std::string, std::string> &getHeaders() const;
 		void setProxyPass(const std::string &proxy);
 		const std::string &getProxyPass() const;
-		void setRedirection(const std::string &to);
-		const std::string &getRedirection() const;
+		void addReturnDirective(int statusCode, const std::string &url);
+		bool hasReturnDirective() const;
+		int getReturnStatusCode() const;
+		const std::string &getReturnUrl() const;
+		const std::pair<int, std::string> &getReturnDirectives() const;
 		void setMaxBodySize(int size);
 		int getMaxBodySize() const;
 		void addNestedLocation(const std::string &uri, const ServerConfigLocation &location);

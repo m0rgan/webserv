@@ -1,22 +1,22 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   Response.cpp                                       :+:      :+:    :+:   */
+/*   HTTPResponse.cpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/28 19:21:07 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/28 19:21:07 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/04 14:04:56 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "Response.hpp"
+#include "HTTPResponse.hpp"
 
-const std::string Response::_endLine = "\r\n";
+const std::string HTTPResponse::_endLine = "\r\n";
 
-const std::map<int, std::string> Response::_statusMap = Response::initStatusMap();
+const std::map<int, std::string> HTTPResponse::_statusMap = HTTPResponse::initStatusMap();
 
-std::map<int, std::string> Response::initStatusMap()
+std::map<int, std::string> HTTPResponse::initStatusMap()
 {
 	std::map<int, std::string> m;
 	m[100] = "Continue";
@@ -85,19 +85,21 @@ std::map<int, std::string> Response::initStatusMap()
 	return (m);
 }
 
-Response::Response()
+HTTPResponse::HTTPResponse()
 {
 	_protocol = "HTTP/1.1";
 	setDefaults();
 }
 
-Response::Response(const std::string &protocol)
+HTTPResponse::HTTPResponse(const std::string &protocol)
 {
 	_protocol = protocol;
 	setDefaults();
 }
 
-Response &Response::setStatus(int code)
+HTTPResponse::~HTTPResponse(){}
+
+HTTPResponse &HTTPResponse::setStatus(int code)
 {
 	std::map<int, std::string>::const_iterator it = _statusMap.find(code);
 	if (it == _statusMap.end())
@@ -105,7 +107,7 @@ Response &Response::setStatus(int code)
 	return (setStatus(it->first, it->second));
 }
 
-Response &Response::setStatus(int code, const std::string &reasonPhrase)
+HTTPResponse &HTTPResponse::setStatus(int code, const std::string &reasonPhrase)
 {
 	std::stringstream ss;
 	ss << code;
@@ -114,13 +116,13 @@ Response &Response::setStatus(int code, const std::string &reasonPhrase)
 	return (*this);
 }
 
-Response &Response::setHeader(const std::string &key, const std::string &value)
+HTTPResponse &HTTPResponse::setHeader(const std::string &key, const std::string &value)
 {
 	_headers[key] = value;
 	return (*this);
 }
 
-Response &Response::setBody(const std::string &data)
+HTTPResponse &HTTPResponse::setBody(const std::string &data)
 {
 	_body = data;
 	std::stringstream ss;
@@ -129,26 +131,26 @@ Response &Response::setBody(const std::string &data)
 	return (*this);
 }
 
-Response &Response::setDate()
+HTTPResponse &HTTPResponse::setDate()
 {
 	time_t now = time(0);
 	setHeader("Date", convertTime(now));
 	return (*this);
 }
 
-Response &Response::setServer()
+HTTPResponse &HTTPResponse::setServer()
 {
 	setHeader("Server", "webserv/1.0"); //must set or can leave static?
 	return (*this);
 }
 
-Response &Response::setConnection()
+HTTPResponse &HTTPResponse::setConnection()
 {
 	setHeader("Connection", "Close");
 	return (*this);
 }
 
-Response &Response::setDefaults()
+HTTPResponse &HTTPResponse::setDefaults()
 {
 	if (_statusLine.first.empty()) setStatus(200);
 	if (_headers.find("Date") == _headers.end()) setDate();
@@ -157,7 +159,7 @@ Response &Response::setDefaults()
 	return (*this);
 }
 
-std::string Response::convertTime(time_t time)
+std::string HTTPResponse::convertTime(time_t time)
 {
 	tm *timeStruct = std::gmtime(&time);
 	const char *days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -175,7 +177,7 @@ std::string Response::convertTime(time_t time)
 	return (oss.str());
 }
 
-std::string Response::buildResponse() const
+std::string HTTPResponse::toString() const
 {
 	std::ostringstream response;
 
@@ -185,4 +187,15 @@ std::string Response::buildResponse() const
 	response << _endLine;
 	response << _body;
 	return (response.str());
+}
+
+void HTTPResponse::logResponse(const std::string &timestamp) const
+{
+	std::cout << BLUE << "[" << timestamp << "] ";
+	std::cout << _protocol << " " << _statusLine.first << " " << _statusLine.second << std::endl;
+	// for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
+	// 	std::cout << it->first << ": " << it->second << std::endl;
+	// if (!_body.empty())
+	// 	std::cout << std::endl << _body << std::endl;
+	std::cout << RESET;
 }

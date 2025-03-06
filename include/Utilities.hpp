@@ -15,16 +15,21 @@
 
 #include <string>
 #include <map>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+#include <cctype>
+#include <algorithm>
 
-class Utilities
-{
-	public:
-		Utilities();
-		Utilities(const Utilities &src);
-		Utilities &operator=(const Utilities &rhs);
-		~Utilities();
 
-		std::string getMimeType(const std::string &extension) const;
-};
+#define BLUE "\033[34m"
+#define GREEN "\033[32m"
+#define MAGENTA "\033[35m"
+#define ORANGE  "\033[38;5;214m"
+#define RESET "\033[0m"
+
+std::string		getMimeType(const std::string &extension);
+std::string		getCurrentTimestamp();
+unsigned long	stringTUL(const std::string &str);
 
 #endif

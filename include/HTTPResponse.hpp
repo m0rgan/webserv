@@ -1,25 +1,26 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   Response.hpp                                       :+:      :+:    :+:   */
+/*   HTTPResponse.hpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/28 19:20:45 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/02 19:09:56 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/04 14:06:30 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef RESPONSE_HPP
-#define RESPONSE_HPP
+#ifndef HTTPRESPONSE_HPP
+#define HTTPRESPONSE_HPP
 
 #include <map>
 #include <string>
 #include <sstream>
 #include <ctime>
+#include <Utilities.hpp>
 #include <iostream>
 
-class Response
+class HTTPResponse
 {
 	private:
 		std::string								_protocol;
@@ -30,22 +31,23 @@ class Response
 		static const std::string				_endLine;
 
 	public:
-		Response(void);
-		Response(Response const &src);
-		Response &operator=(Response const &rhs);
-		~Response(void);
-		Response(const std::string &protocol);
-		Response &setStatus(int code);
-		Response &setStatus(int code, const std::string &reasonPhrase);
-		Response &setHeader(const std::string &key, const std::string &value);
-		Response &setBody(const std::string &data);
-		Response &setDate();
-		Response &setServer();
-		Response &setConnection();
-		Response &setDefaults();
-		std::string buildResponse() const;
+		HTTPResponse(void);
+		HTTPResponse(HTTPResponse const &src);
+		HTTPResponse &operator=(HTTPResponse const &rhs);
+		~HTTPResponse(void);
+		HTTPResponse(const std::string &protocol);
+		HTTPResponse &setStatus(int code);
+		HTTPResponse &setStatus(int code, const std::string &reasonPhrase);
+		HTTPResponse &setHeader(const std::string &key, const std::string &value);
+		HTTPResponse &setBody(const std::string &data);
+		HTTPResponse &setDate();
+		HTTPResponse &setServer();
+		HTTPResponse &setConnection();
+		HTTPResponse &setDefaults();
+		std::string toString() const;
 		static std::map<int, std::string> initStatusMap();
 		static std::string convertTime(time_t time);
+		void logResponse(const std::string &timestamp) const;
 };
 
 #endif

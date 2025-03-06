@@ -6,186 +6,194 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/21 17:01:19 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/21 17:01:19 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/06 20:35:28 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-	#include "ServerLauncher.hpp"
+#include <ServerLauncher.hpp>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
-	static ServerLauncher* serverLauncherInstance = NULL;
+static ServerLauncher* serverLauncherInstance = NULL;
 
-	void handleSIGINT(int sig)
+void handleSIGINT(int sig)
+{
+	std::cerr << "[SIGNAL] Caught signal " << sig << " - Shutting down server" << std::endl;
+	if (serverLauncherInstance)
+		serverLauncherInstance->stopServers();
+	kill(0, SIGTERM);
+}
+
+ServerLauncher::ServerLauncher(void) {}; //fix
+
+ServerLauncher::ServerLauncher(const std::string &configFile)
+{
+	serverLauncherInstance = this;
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGINT, handleSIGINT);
+
+	initServers(configFile);
+	loop();
+}
+
+void ServerLauncher::initServers(const std::string &configFile)
+{
+	ConfigFile parsedConfigFile;
+	try
 	{
-		std::cerr << "[SIGNAL] Caught signal " << sig << " - Shutting down server" << std::endl;
-		if (serverLauncherInstance)
-			serverLauncherInstance->stopServers();
-		kill(0, SIGTERM);
+		parsedConfigFile.process(configFile);
 	}
-	ServerLauncher::ServerLauncher(void) {}; //fix
-
-	ServerLauncher::ServerLauncher(const std::string &configFile)
+	catch(const std::exception& e)
 	{
-		serverLauncherInstance = this;
-		signal(SIGPIPE, SIG_IGN); // Ignore SIGPIPE to prevent crashes on broken pipes
-		signal(SIGINT, handleSIGINT);
-
-		initServers(configFile);
-		loop();
+		std::cerr << e.what() << '\n';
+		return;
 	}
+	parsedConfigFile.printConfig();
+	std::vector<ServerConfig> configs = parsedConfigFile.getServers();
 
-	void ServerLauncher::initServers(const std::string &configFile)
+	for (size_t i = 0; i < configs.size(); ++i)
 	{
-		ConfigFile parsedConfigFile(configFile);
-		//try catch for configfile?
-		std::vector<ServerConfig> configs = parsedConfigFile.getServers();
-		std::vector<Server*> buffer;
-		for (size_t i = 0; i < configs.size(); ++i)
+		try
 		{
-			try
+			std::cout << "[INFO] Launching server: " << configs[i].getName() << std::endl;
+			Server* server = new Server(configs[i]);
+			//handle new error?
+			if (server->sockets() == 0)
 			{
-				std::cout << "[INFO] Launching server: " << configs[i].getName() << std::endl;
-				buffer.push_back(new Server(configs[i]));
-				//handle new error?
-				if (buffer.back()->sockets())
-				{
-					delete buffer.back();
-					buffer.pop_back();
-					throw std::runtime_error("Server socket setup failed.");
-				}
-
-				const std::vector<pollfd> &serverSockets = buffer.back()->getSockets();
+				server->addSocketsToEpoll(_epoll);
+				const std::vector<pollfd> &serverSockets = server->getSockets();
 				for (size_t j = 0; j < serverSockets.size(); ++j)
 				{
-					if (_servers.find(serverSockets[j].fd) != _servers.end())
+					int serverFd = serverSockets[j].fd;
+					if (_servers.find(serverFd) != _servers.end())
 					{
-						std::cerr << "[ERROR] Failed to bind and listen on " << serverSockets[j].fd << std::endl;
-						delete buffer.back();
-						buffer.pop_back();
-						throw std::runtime_error("Server socket setup failed.");
+						std::cerr << "[ERROR] Failed to bind and listen on " << serverFd << std::endl;
+						delete server;
+						return;
 					}
-					_pollfds.push_back(serverSockets[j]);
-					_servers[serverSockets[j].fd] = buffer.back();
+					_servers[serverFd] = server;
 				}
 			}
-			catch (const std::exception &e)
-			{
-				std::cerr << "[ERROR] Failed to launch server: " << e.what() << std::endl;
-			}
+			else
+				delete server;
+		}
+		catch (const std::exception &e)
+		{
+			std::cerr << "[ERROR] Failed to launch server: " << e.what() << std::endl;
 		}
 	}
+}
 
-	ServerLauncher::~ServerLauncher()
-	{
-		stopServers();
-	}
+ServerLauncher::~ServerLauncher()
+{
+	stopServers();
+}
 
-	void ServerLauncher::loop()
+void ServerLauncher::loop()
+{
+	for (;;)
 	{
-		for (;;)
+		int numEvents = _epoll.wait();
+		for (int i = 0; i < numEvents; ++i)
 		{
-			int readyEvents = poll(_pollfds.data(), _pollfds.size(), POLL_TIMEOUT);
-			if (readyEvents == -1)
-			{
-				std::cerr << "[ERROR] poll() failed: " << strerror(errno) << std::endl;
-				break;
-			}
-			else if (readyEvents == 0)
-				continue;
-			dispatchEvents();
-		}
-		cleanupSockets();
-	}
+			struct epoll_event event = _epoll.getEvent(i);
+			int fd = event.data.fd;
 
-	void ServerLauncher::dispatchEvents()
-	{
-		for (size_t i = 0; i < _pollfds.size(); ++i)
-		{
-			int fd = _pollfds[i].fd;
-			if (_pollfds[i].revents & POLLIN)
+			if (event.events & EPOLLIN)
 			{
 				if (_servers.find(fd) != _servers.end())
 					newClient(fd);
 				else
 					existingClient(fd);
-				break;
 			}
-			if (_pollfds[i].revents & POLLOUT)
+			if (event.events & EPOLLOUT) //epollet and?
 			{
 				if (_clients.find(fd) != _clients.end())
 					if (_clients[fd]->hasPendingData())
+					{
 						_clients[fd]->writeResponse();
+						if (_clients[fd]->getSocket() == -1)// || request.isEmpty())
+							continue;
+						if (_clients[fd]->keepAlive())
+							_epoll.modifyFd(fd, EPOLLIN);
+						else
+							closeClient(fd);
+					}
 			}
 		}
 	}
+}
 
-	void ServerLauncher::newClient(int serverFd)
+void ServerLauncher::newClient(int serverFd)
+{
+	Server* server = _servers[serverFd];
+
+	if (!server)
 	{
-		Server* server = _servers[serverFd];
+		std::cerr << "[ERROR] No server found for FD: " << serverFd << std::endl;
+		return;
+	}
 
-		if (!server)
-		{
-			std::cerr << "[ERROR] No server found for FD: " << serverFd << std::endl;
+	int clientFd = server->acceptClient(serverFd);
+	if (clientFd > 0)
+	{
+		_epoll.addFd(clientFd, EPOLLIN | EPOLLOUT);
+		_clients[clientFd] = new Client(clientFd, server->getConfig());
+	}
+}
+
+// The event bitmasks in events and revents have the following bits:
+//      POLLERR        An exceptional condition has occurred on the device or socket.  This flag is output
+//                     only, and ignored if present in the input events bitmask.
+//      POLLHUP        The device or socket has been disconnected.  This flag is output only, and ignored
+//                     if present in the input events bitmask.  Note that POLLHUP and POLLOUT are mutually
+//                     exclusive and should never be present in the revents bitmask at the same time.
+//      POLLNVAL       The file descriptor is not open.  This flag is output only, and ignored if present
+//                     in the input events bitmask.
+//      POLLPRI        High priority data may be read without blocking.
+//      POLLWRBAND     Priority data may be written without blocking.
+
+void ServerLauncher::existingClient(int clientFd)
+{
+	Client* client = _clients[clientFd];
+
+	if (!client)
+		return;
+	try
+	{
+		HTTPRequest http = client->readRequest();
+		if (client->getSocket() == -1)
 			return;
-		}
-
-		int clientFd = server->acceptClient(serverFd);
-		if (clientFd > 0)
-		{
-			pollfd clientPollfd = {clientFd, POLLIN | POLLOUT, 0};
-			_pollfds.push_back(clientPollfd);
-			_clients[clientFd] = new Client(clientFd, server->getConfig());
-		}
+		client->handleRequest(http);
+		if (client->hasPendingData())
+			_epoll.modifyFd(clientFd, EPOLLOUT);
+		else
+			_epoll.modifyFd(clientFd, EPOLLIN);
 	}
-
-	void ServerLauncher::existingClient(int clientFd)
+	catch (const std::exception &e)
 	{
-		Client* client = _clients[clientFd];
-
-		if (!client)
-		{
-			std::cerr << "[ERROR] No client found for FD: " << clientFd << std::endl;
-			return;
-		}
-		try
-		{
-			client->readRequest();
-			client->handleRequest();
-			// cookie and multiple cgi management.. do bonus or skip?
-		}
-		catch (const std::exception &e)
-		{
-			std::cerr << "[ERROR] Client error: " << e.what() << std::endl;
-			closeClient(clientFd);
-		}
+		std::cerr << "[ERROR] Client error: " << e.what() << std::endl;
+		closeClient(clientFd);
 	}
+}
 
-	void ServerLauncher::closeClient(int clientFd)
+void ServerLauncher::closeClient(int clientFd)
+{
+	_epoll.removeFd(clientFd);
+
+	if (_clients.find(clientFd) != _clients.end())
 	{
-		close(clientFd);
-		for (size_t i = 0; i < _pollfds.size(); ++i)
-		{
-			if (_pollfds[i].fd == clientFd)
-			{
-				_pollfds.erase(_pollfds.begin() + i);
-				break;
-			}
-		}
-		if (_clients.find(clientFd) != _clients.end())
-		{
-			delete _clients[clientFd];
-			_clients.erase(clientFd);
-		}
+		delete _clients[clientFd];
+		_clients.erase(clientFd);
 	}
 
-	void ServerLauncher::cleanupSockets()
-	{
-		for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
-			close(it->first);
-	}
+	close(clientFd);
+}
 
-	void ServerLauncher::stopServers()
-	{
-		for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
-			delete it->second;
-		_servers.clear();
-	}
+void ServerLauncher::stopServers()
+{
+	for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
+		delete it->second;
+	_servers.clear();
+}

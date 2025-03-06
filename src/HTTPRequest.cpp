@@ -27,10 +27,10 @@ HTTPRequest HTTPRequest::operator=(HTTPRequest const &rhs)
 
 HTTPRequest::~HTTPRequest(void){};
 
-void HTTPRequest::parser(const std::string &rawRequest)
+void HTTPRequest::parserHeaders(const std::string &rawRequest)
 {
-	std::istringstream	requestStream(rawRequest);
-	std::string			line;
+	std::istringstream requestStream(rawRequest);
+	std::string line;
 
 	if (std::getline(requestStream, line))
 	{
@@ -49,13 +49,16 @@ void HTTPRequest::parser(const std::string &rawRequest)
 			request.headers[key] = value;
 		}
 	}
-	if (request.headers.find("Content-Length") != request.headers.end())
-	{
-		std::string body;
-		std::getline(requestStream, body, '\0');
-		request.body = body;
-	}
 }
+
+void HTTPRequest::parserBody(const std::string &rawRequest)
+{
+	std::istringstream requestStream(rawRequest);
+	std::string body;
+	std::getline(requestStream, body, '\0');
+	request.body = body;
+}
+
 
 std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 {
@@ -89,6 +92,9 @@ std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 		filePath += "/";
 	filePath += requestUri;
 
+	if (request.method == "POST" || request.method == "DELETE")
+		return (resolvedRoot);
+
 	struct stat pathStat;
 	if (stat(filePath.c_str(), &pathStat) == 0 && S_ISDIR(pathStat.st_mode))
 	{
@@ -106,15 +112,35 @@ std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 
 	if (!filePath.empty() && filePath[filePath.size() - 1] == '/')
 		filePath = filePath.substr(0, filePath.size() - 1);
-	Utilities utils;
+
 	std::string fileExtension;
 	size_t dotPos = filePath.find_last_of('.');
-	if (dotPos != std::string::npos) {
+	if (dotPos != std::string::npos)
+	{
 		fileExtension = filePath.substr(dotPos);
-		std::string mimeType = utils.getMimeType(fileExtension);
+		std::string mimeType = getMimeType(fileExtension);
 		if (!mimeType.empty())
 			return (filePath);
 	}
 
 	return (filePath);
+}
+
+void HTTPRequest::logRequest(const std::string timestamp) const
+{
+	std::string color;
+
+	if (request.method == "GET")
+		color = GREEN;
+	else if (request.method == "POST")
+		color = MAGENTA;
+	else if (request.method == "DELETE")
+		color = ORANGE;
+	std::cout << color << "[" << timestamp << "] ";
+	std::cout << request.httpVersion << " " << request.method << " " << request.uri << std::endl;
+	// for (std::map<std::string, std::string>::const_iterator it = request.headers.begin(); it != request.headers.end(); ++it)
+	// 	std::cout << it->first << ": " << it->second << std::endl;
+	// if (!request.body.empty())
+	// 	std::cout << std::endl << request.body << std::endl;
+	std::cout << RESET;
 }

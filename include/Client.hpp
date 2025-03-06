@@ -19,7 +19,7 @@
 #include <ServerConfig.hpp>
 #include <CGI.hpp>
 #include "Utilities.hpp"
-#include <Response.hpp>
+#include <HTTPResponse.hpp>
 #include <ErrorPage.hpp>
 
 #include <sstream>
@@ -37,33 +37,41 @@
 class Client
 {
 	private:
-		int			_clientSocket;
-		std::string	_requestBuffer;
-		std::string	_responseBuffer;
-		ssize_t		_bytesSent;
-		ServerConfig _currentConfig;
+		int				_clientSocket;
+		std::string		_requestBuffer;
+		std::string		_responseBuffer;
+		ssize_t			_bytesSent;
+		ServerConfig	_currentConfig;
+		bool			_keepAlive;
 
-		// void	handleGET(const std::string &path);
-		void handleGET(HTTPRequest *http);
-		void handlePOST(const std::string &path, const std::string &body);
-		void	handleDELETE(const std::string &path);
-		void closeClient();
-		void prepareResponse(int statusCode, const std::string &contentType, const std::string &body);
-		void serveErrorResponse(int statusCode);
-		
-		public:
+		void	handleGET(HTTPRequest *http);
+		void	handlePOST(HTTPRequest *http);
+		void	handleDELETE(HTTPRequest *http);
+		void	closeClient();
+		bool	lengthData(HTTPRequest &http);
+		bool	chunkedData(HTTPRequest &http);
+		const ServerConfigLocation *matchLocation(const HTTPRequest &http) const;
+		bool	serverReturn(void);
+		bool	locationReturn(const ServerConfigLocation *location);
+		bool	handleReturnDirective(int statusCode, const std::string &redirectUrl);
+		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl);
+		void	prepareErrorResponse(int statusCode, const std::string &contentType, const std::string &body);
+		void	serveErrorResponse(int statusCode);
+
+	public:
 		Client(void);
 		Client(int socket, const ServerConfig& config);
 		Client(Client const &src);
 		Client &operator=(Client const &rhs);
 		~Client(void);
 		
-		void readRequest();
-		void handleRequest();
+		HTTPRequest readRequest();
+		void handleRequest(HTTPRequest &http);
 		bool hasPendingData() const;
 		void writeResponse();
 
 		int getSocket() const;
+		bool keepAlive() const;
 };
 
 #endif

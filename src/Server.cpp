@@ -12,7 +12,7 @@
 
 #include "Server.hpp"
 
-Server::Server() : _nfds(0), _proto(NULL)
+Server::Server() : _proto(NULL)
 {
 	//getprotobyname
 	_proto = getprotobyname("tcp");
@@ -20,14 +20,14 @@ Server::Server() : _nfds(0), _proto(NULL)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(const ServerConfig &config) : _ports(config.getPorts()), _hosts(config.getHosts()), _nfds(0), _proto(NULL), _currentConfig(config)
+Server::Server(const ServerConfig &config) : _ports(config.getPorts()), _hosts(config.getHosts()), _proto(NULL), _currentConfig(config)
 {
 	_proto = getprotobyname("tcp");
 	if (!_proto)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(Server const &src) : _ports(src._ports), _hosts(src._hosts), _fds(src._fds), _nfds(src._nfds), _currentConfig(src._currentConfig)  //must finish 
+Server::Server(Server const &src) : _ports(src._ports), _hosts(src._hosts), _fds(src._fds), _currentConfig(src._currentConfig)  //must finish 
 {
 	this->_proto = getprotobyname("tcp");
 	if (!this->_proto)
@@ -39,7 +39,6 @@ Server &Server::operator=(Server const &rhs)
 	if (this != &rhs)
 	{
 		this->_currentConfig = rhs._currentConfig;
-		this->_nfds = rhs._nfds;
 		this->_fds = rhs._fds;
 		this->_ports = rhs._ports;
 		this->_proto = getprotobyname("tcp");
@@ -67,7 +66,7 @@ int Server::getAddressProtocol(const std::string &host)
 	if (getaddrinfo(host.c_str(), NULL, &serverAddr, &list) != 0)
 	{
 		std::cerr << "getaddrinfo failed for " << host << std::endl;
-		return -1;
+		return (-1); //change to throw?
 	}
 
 	int protocol = list->ai_family;
@@ -85,43 +84,26 @@ int Server::sockets()
 	{
 		int protocol = getAddressProtocol(_hosts[i]);
 		if (protocol == -1)
-		{
-			std::cerr << "Invalid address protocol for " << _hosts[i] << std::endl;
-			return (1);
-		}
-
+			return (std::cerr << "[ERROR] getAddressProtocol fnct " << _hosts[i] << std::endl, 1);
 		serverSocket = createSocket(protocol);
 		if (serverSocket < 0)
-		{
-			std::cerr << "[ERROR] Failed to create socket!" << std::endl;
-			return (1);
-		}
-		
+			return (std::cerr << "[ERROR] createSocket fnct" << std::endl, 1);
 		if (configureSocket(serverSocket))
-		{
-			std::cerr << "[ERROR] Failed to configure socket!" << std::endl;
-			return (1);
-		}
+			return (std::cerr << "[ERROR] configureSocket fnct" << std::endl, 1);
 		if (bindAndListen(serverSocket, _hosts[i], _ports[i]))
-		{
-			std::cerr << "[ERROR] Failed to bind and listen on " << _hosts[i] << ":" << _ports[i] << std::endl;
-			return (1);
-		}
-		addToPollList(serverSocket);
+			return (std::cerr << "[ERROR] bindAndListen fnct " << _hosts[i] << ":" << _ports[i] << std::endl, 1);
+		addToFDList(serverSocket);
 	}
-
-	return 0;
+	return (0);
 }
-
 
 int Server::createSocket(int protocol)
 {
 	int fd = socket(protocol, SOCK_STREAM, 0);
 	if (fd == -1)
-		throw std::runtime_error(std::string("socket: ") + strerror(errno));
-	return fd;
+		throw std::runtime_error(std::string("socket fnct: ") + strerror(errno));
+	return (fd);
 }
-
 
 //  Handling Errors and Disconnections
 // if ((_pollFds[i].revents & POLLERR) || _pollFds[i].revents & POLLHUP)
@@ -129,21 +111,13 @@ int Server::createSocket(int protocol)
 
 int Server::configureSocket(int serverSocket)
 {
-	int	opt;
+	int	opt; //change errors in function to be throw ??
 
 	opt = 1;
-	if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
-	{
-		std::cerr << "setsockopt: " << strerror(errno) << std::endl;
-		close(serverSocket);
-		return (1);
-	}
+	if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) == -1)
+		return (std::cerr << "setsockopt: " << strerror(errno) << std::endl, close(serverSocket), 1);
 	if (fcntl(serverSocket, F_SETFL, O_NONBLOCK) == 1)
-	{
-		std::cerr << "fcntl: " << strerror(errno) << std::endl;
-		close(serverSocket);
-		return (1);
-	}
+		return (std::cerr << "fcntl: " << strerror(errno) << std::endl, close(serverSocket), 1);
 	return (0);
 }
 
@@ -153,7 +127,6 @@ std::string intToString(int number)
 	oss << number;
 	return (oss.str());
 }
-
 
 int Server::bindAndListen(int serverSocket, const std::string &host, int port)
 {
@@ -166,31 +139,38 @@ int Server::bindAndListen(int serverSocket, const std::string &host, int port)
 
 	std::string portStr = intToString(port);
 	if (getaddrinfo(host.c_str(), portStr.c_str(), &serverAddr, &list) != 0)
-		return (std::cerr << "getaddrinfo failed for " << host << ":" << port << std::endl, 1);
+		throw std::runtime_error("getaddrinfo failed for " + host + ":" + portStr); //close socket before throw?
 	for (it = list; it != NULL; it = it->ai_next)
 		if (bind(serverSocket, it->ai_addr, it->ai_addrlen) == 0)
 			break;
 	freeaddrinfo(list);
 	if (!it)
-		return (std::cerr << "bind: " << strerror(errno) << std::endl, close(serverSocket), 1);
+		throw std::runtime_error("bind failed: " + std::string(strerror(errno))); //close socket before throw?
 	if (listen(serverSocket, SOMAXCONN) == -1)
-		return (std::cerr << "listen: " << strerror(errno) << std::endl, close(serverSocket), 1);
+		throw std::runtime_error("listen failed: " + std::string(strerror(errno))); //close socket before throw?
 	std::cout << "Server listening on " << host << ":" << port << std::endl;
 	return 0;
 }
 
-
-void Server::addToPollList(int serverSocket)
+void Server::addToFDList(int serverSocket)
 {
 	pollfd serverPollfd = {serverSocket, POLLIN, 0};
 	_fds.push_back(serverPollfd);
-	_nfds++;
 }
 
-const std::string Server::getName() const {return (_currentConfig.getName());};
-const std::vector<pollfd> &Server::getSockets() const {return (_fds);}
-const std::vector<int> Server::getPorts() const {return (_ports);};
-const std::vector<std::string> Server::getHosts() const {return (_hosts);};
+void Server::addSocketsToEpoll(EPoll &epollInstance)
+{
+	for (size_t i = 0; i < _fds.size(); ++i)
+	{
+		int serverFd = _fds[i].fd;
+		epollInstance.addFd(serverFd, EPOLLIN);
+	}
+}
+
+const std::vector<pollfd> &Server::getSockets() const
+{
+	return (_fds);
+}
 
 int Server::acceptClient(int serverFd)
 {
