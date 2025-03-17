@@ -58,6 +58,7 @@ class Client
 		void	prepareErrorResponse(int statusCode, const std::string &contentType, const std::string &body);
 		void	serveErrorResponse(int statusCode);
 		bool	routeToCGI(std::string requestURI);
+		void	resetState(void);
 
 	public:
 		Client(void);

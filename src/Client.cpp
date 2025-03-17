@@ -187,6 +187,11 @@ void Client::handleRequest(HTTPRequest &http)
 	else
 		serveErrorResponse(405);
 
+	resetState();
+}
+
+void Client::resetState()
+{
 	_requestBuffer.clear();
 	_bytesSent = 0;
 }

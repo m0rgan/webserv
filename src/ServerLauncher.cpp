@@ -122,7 +122,10 @@ void ServerLauncher::loop()
 						if (_clients[fd]->getSocket() == -1)// || request.isEmpty())
 							continue;
 						if (_clients[fd]->keepAlive())
+						{
 							_epoll.modifyFD(fd, EPOLLIN);
+							_clients[fd]->resetState();
+						}
 						else
 							closeClient(fd);
 					}
@@ -164,15 +167,15 @@ void ServerLauncher::existingClient(int clientFd)
 	{
 		HTTPRequest http = client->readRequest();
 		
-        // std::cout << "[DEBUG] Host header: " << http.getHost() << std::endl;
+		// std::cout << "[DEBUG] Host header: " << http.getHost() << std::endl;
 		if (client->getSocket() == -1)
 			return;
 		Server* server = serverSelector(http);
 		// if (server)
-        // {
-        //     std::cout << "[DEBUG] Server name: " << server->getConfig().getServerName() << std::endl;
-        //     std::cout << "[DEBUG] Client server name: " << client->getServerConfig().getServerName() << std::endl;
-        // }
+		// {
+		//     std::cout << "[DEBUG] Server name: " << server->getConfig().getServerName() << std::endl;
+		//     std::cout << "[DEBUG] Client server name: " << client->getServerConfig().getServerName() << std::endl;
+		// }
 		if (server && server->getConfig().getServerName() != client->getServerConfig().getServerName())
 		{
 			// std::cout << "[DEBUG] Changing server config for client FD: " << clientFd << std::endl;
