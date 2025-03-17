@@ -174,7 +174,7 @@ void Client::handleRequest(HTTPRequest &http)
 	}
 	catch (const std::exception &e)
 	{
-		std::cerr << "CGI error " << e.what() << std::endl;
+		//std::cerr << "CGI error " << e.what() << std::endl;
 		serveErrorResponse(500);
 		return;
 	}
@@ -185,7 +185,10 @@ void Client::handleRequest(HTTPRequest &http)
 	else if (http.request.method == "DELETE")
 		handleDELETE(&http);
 	else
-		prepareErrorResponse(405, "text/plain", "405 Method Not Allowed");
+		serveErrorResponse(405);
+
+	_requestBuffer.clear();
+	_bytesSent = 0;
 }
 
 bool Client::routeToCGI(std::string requestURI)
