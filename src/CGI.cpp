@@ -16,30 +16,27 @@ CGI::CGI(void){};
 
 CGI::CGI(CGI const &src)
 {
-	(void)src;
+	*this = src;
 };
 
 CGI &CGI::operator=(CGI const &rhs)
 {
-	(void)rhs;
+	if (this != &rhs)
+	{
+		this->_fullPath = rhs._fullPath;
+		this->_requestBody = rhs._requestBody;
+		this->_cgiProgram = rhs._cgiProgram;
+		this->_argv = rhs._argv;
+		this->_envBuffer = rhs._envBuffer;
+		this->_env = rhs._env;
+		this->_currentConfig = rhs._currentConfig;
+	}
 	return (*this);
 };
 
 CGI::~CGI(void){};
 
-bool CGI::routeToCGI(std::string requestURI)
-{
-	size_t dotPos = requestURI.find_last_of('.');
-	if (dotPos == std::string::npos)
-		return (false);
-	std::string extension = requestURI.substr(dotPos);
-	//manage the extension being in upper/lowercase??
-
-	//check for extensions as parameter to decide true return, is this how nginx work?
-	if (extension == ".php")
-		return (true);
-	return (false);
-};
+CGI::CGI(ServerConfig const &currentConfig) : _currentConfig(currentConfig) {}
 
 unsigned long hexToULong(const std::string &hexStr)
 {
@@ -125,11 +122,12 @@ void CGI::parser(const HTTPRequest &http, const std::string serverRoot)
 		_requestBody = unchunk(http.request.body);
 }
 
-void CGI::execute(const HTTPRequest &http)
+void CGI::execute(HTTPRequest *http)
 {
+	std::string filePath = http->resolveFilePath(_currentConfig);
 	const std::string serverRoot = "/var/www"; // must change to dynamic decision
 	const std::string cgiProgram = "/usr/bin/php-cgi"; // must change to dynamic decision
-	parser(http, serverRoot);
+	parser(*http, serverRoot);
 	int pipe_in[2];  // for input to CGI
 	int pipe_out[2]; // for output from CGI
 	if (pipe(pipe_in) < 0 || pipe(pipe_out) < 0)
@@ -156,6 +154,7 @@ void CGI::execute(const HTTPRequest &http)
 		(close(pipe_in[1]), close(pipe_out[0]));
 		execve(cgiProgram.c_str(), _argv.data(), _env.data());
 		std::cerr << "Error: CGI execve failed" << std::endl;
+		(close(pipe_in[0]), close(pipe_out[1])); //confirm this is correct?
 		kill(0, SIGTERM); // will this handle exit correctly?
 	}
 	else
@@ -163,7 +162,7 @@ void CGI::execute(const HTTPRequest &http)
 		(close(pipe_in[0]), close(pipe_out[1]));
 
 		// if request is POST, write body to CGI reading pipe end
-		if (http.request.method == "POST" && !_requestBody.empty())
+		if (http->request.method == "POST" && !_requestBody.empty())
 		{
 			ssize_t bytesWritten = write(pipe_in[1], _requestBody.c_str(), _requestBody.size());
 			// change write to send?

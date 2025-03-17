@@ -29,14 +29,12 @@ class ServerConfig
 		// default host:port?
 		std::string 								_root;
 		std::map<int, std::string>					_errorPages;
-		int											_maxBodySize;
+		size_t										_maxBodySize;
 		std::map<std::string, ServerConfigLocation>	_locations;
 		std::vector<std::string>					_indexFiles;
 		bool										_autoIndex;
-		std::string									_logAccessFile;
-		std::string									_logErrorFile;
 		std::pair<int, std::string> 				_returnDirective;
-	    bool 										_hasReturnDirective;
+		bool 										_hasReturnDirective;
 
 	public:
 		ServerConfig(void);
@@ -47,35 +45,31 @@ class ServerConfig
 		const std::vector<std::pair <std::string, int> > &getHostPort() const;
 		const std::vector<int> &getPorts() const;
 		const std::vector<std::string> &getHosts() const;
-		const std::string &getName() const;
+		const std::string &getServerName() const;
 		const std::string &getRoot() const;
 		const std::map<int, std::string> &getErrorPages() const;
 		const std::map<std::string, ServerConfigLocation> &getLocations() const;
 		const std::vector<std::string> &getIndexFiles() const;
-		int getMaxBodySize() const;
-		const std::string &getLogAccessFile() const;
-		const std::string &getLogErrorFile() const;
+		size_t getMaxBodySize() const;
 		bool getAutoIndex() const;
 		
-		void addHostPort(const std::string &host, int port); // Set host:port
+		void addHostPort(const std::string &host, int port);
 		void addPort(int port);
 		void addHost(std::string host);
 		void setServerName(const std::string &name);
 		void setRoot(const std::string &root);
 		void addErrorPage(int errorCode, const std::string &pagePath);
-		void addLocation(const ServerConfigLocation &location); // Add location blocks
+		void addLocation(const ServerConfigLocation &location);
 		void addIndexFile(const std::string &file);
 		void setAutoIndex(bool enabled);
-		void setMaxBodySize(int size);
-		void setLogAccessFile(const std::string &path);
-		void setLogErrorFile(const std::string &path);
+		void setMaxBodySize(size_t size);
 		void addReturnDirective(int statusCode, const std::string &url);
 		bool hasReturnDirective() const;
 		int getReturnStatusCode() const;
 		const std::string &getReturnUrl() const;
 		const std::pair<int, std::string> &getReturnDirective() const;
-		
-		void printConfig() const;
+
+		//allowedMethods (getLocations is a map)
 };
 
 #endif

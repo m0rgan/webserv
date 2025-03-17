@@ -12,16 +12,21 @@
 
 #include <HTTPRequest.hpp>
 
-HTTPRequest::HTTPRequest(void){};
+HTTPRequest::HTTPRequest(void) : _host(""), _port(80) {}
 
 HTTPRequest::HTTPRequest(HTTPRequest const &src)
 {
-	(void)src;
+	*this = src;
 };
 
 HTTPRequest HTTPRequest::operator=(HTTPRequest const &rhs)
 {
-	(void)rhs;
+	if (this != &rhs)
+	{
+		this->request = rhs.request;
+		this->_host = rhs._host;
+		this->_port = rhs._port;
+	}
 	return (*this);
 };
 
@@ -49,6 +54,31 @@ void HTTPRequest::parserHeaders(const std::string &rawRequest)
 			request.headers[key] = value;
 		}
 	}
+	try
+	{
+		if (request.headers.find("Content-Length") != request.headers.end())
+			request.contentLength = parseContentLength(request.headers["Content-Length"]);
+		else
+			request.contentLength = 0;
+	}
+	catch (const std::invalid_argument &e)
+	{
+		throw std::runtime_error("400 Bad Request");
+	}
+	
+	std::map<std::string, std::string>::const_iterator it = request.headers.find("Host");
+	if (it != request.headers.end())
+	{
+		_host = it->second;
+		size_t colonPos = _host.find(':');
+		if (colonPos != std::string::npos)
+		{
+			_port = static_cast<int>(stringTUL(_host.substr(colonPos + 1)));
+			_host = _host.substr(0, colonPos);
+		}
+		else
+			_port = 80;
+	}
 }
 
 void HTTPRequest::parserBody(const std::string &rawRequest)
@@ -59,11 +89,11 @@ void HTTPRequest::parserBody(const std::string &rawRequest)
 	request.body = body;
 }
 
-
 std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 {
 	std::string matchedLocation;
 	std::string resolvedRoot = config.getRoot();
+	std::string resolvedAlias;
 	std::vector<std::string> resolvedIndexFiles = config.getIndexFiles();
 	const std::map<std::string, ServerConfigLocation> &locations = config.getLocations();
 
@@ -73,27 +103,38 @@ std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 		{
 			matchedLocation = it->first;
 			resolvedRoot = it->second.getRoot();
+			resolvedAlias = it->second.getAlias();
 			resolvedIndexFiles = it->second.getIndexFiles();
 		}
-	}
-
-	if (matchedLocation.empty())
-	{
-		resolvedRoot = config.getRoot();
-		resolvedIndexFiles = config.getIndexFiles();
 	}
 
 	std::string requestUri = request.uri;
 	if (!requestUri.empty() && requestUri[0] == '/')
 		requestUri = requestUri.substr(1);
 
-	std::string filePath = resolvedRoot;
-	if (!resolvedRoot.empty() && resolvedRoot[resolvedRoot.size() - 1] != '/')
-		filePath += "/";
-	filePath += requestUri;
+	std::string filePath;
+	if (!resolvedAlias.empty())
+	{
+		filePath = resolvedAlias;
+		std::string relativeUri = request.uri.substr(matchedLocation.length());
+		if (!relativeUri.empty() && relativeUri[0] == '/')
+			relativeUri = relativeUri.substr(1);
+		if (!filePath.empty() && filePath[filePath.size() - 1] != '/')
+			filePath += "/";
+		filePath += relativeUri;
+	}
+	else
+	{
+		filePath = resolvedRoot;
+		if (!resolvedRoot.empty() && resolvedRoot[resolvedRoot.size() - 1] != '/')
+			filePath += "/";
+		if (!requestUri.empty() && requestUri[0] == '/')
+			requestUri = requestUri.substr(1);
+		filePath += requestUri;
+	}
 
 	if (request.method == "POST" || request.method == "DELETE")
-		return (resolvedRoot);
+		return (filePath);
 
 	struct stat pathStat;
 	if (stat(filePath.c_str(), &pathStat) == 0 && S_ISDIR(pathStat.st_mode))
@@ -110,6 +151,10 @@ std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 		}
 	}
 
+	std::ifstream fileCheck(filePath.c_str());
+	if (!fileCheck.good())
+		return ("");
+
 	if (!filePath.empty() && filePath[filePath.size() - 1] == '/')
 		filePath = filePath.substr(0, filePath.size() - 1);
 
@@ -124,6 +169,35 @@ std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 	}
 
 	return (filePath);
+}
+
+const std::string& HTTPRequest::getHost() const {return _host;}
+int HTTPRequest::getPort() const {return _port;}
+
+size_t HTTPRequest::parseContentLength(std::string contentLengthStr)
+{
+	if (contentLengthStr.empty())
+		return (0);
+
+	std::stringstream ss(contentLengthStr);
+	size_t value;
+	char unit = '\0';
+
+	ss >> value;
+	if (!ss.eof())
+		ss >> unit;
+	unit = std::toupper(unit);
+
+	switch (unit)
+	{
+		case 'K': value *= 1024; break;
+		case 'M': value *= 1024 * 1024; break;
+		case 'G': value *= 1024 * 1024 * 1024; break;
+		case '\0': break;
+		default: 
+			throw std::invalid_argument("Invalid Content-Length unit: " + std::string(1, unit));
+	}
+	return (value);
 }
 
 void HTTPRequest::logRequest(const std::string timestamp) const

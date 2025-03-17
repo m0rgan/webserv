@@ -29,21 +29,29 @@ struct HttpRequest
 	std::string httpVersion;
 	std::map<std::string, std::string> headers;
 	std::string body;
+	size_t	contentLength;
 };
 
 class HTTPRequest
 {
+	private:
+		std::string	_host;
+		int			_port;
+
 	public:
 		HTTPRequest(void);
 		HTTPRequest(HTTPRequest const &src);
 		HTTPRequest operator=(HTTPRequest const &rhs);
 		~HTTPRequest(void);
-
+		
+		HttpRequest	request;
 		void parserHeaders(const std::string &rawRequest);
 		void parserBody(const std::string &rawRequest);
-		HttpRequest request;
 		std::string resolveFilePath(const ServerConfig &config) const;
+		size_t parseContentLength(std::string contentLengthStr);
 		void logRequest(const std::string timestamp) const;
+		const std::string& getHost() const;
+		int getPort() const;
 };
 
 //include httprequest struct in class

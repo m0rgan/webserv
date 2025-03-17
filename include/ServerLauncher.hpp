@@ -34,6 +34,7 @@ class ServerLauncher
 		void newClient(int serverFd);
 		void existingClient(int clientFd);
 		void closeClient(int clientFd);
+		Server* serverSelector(const HTTPRequest &http);
 
 	public:
 		ServerLauncher(void);

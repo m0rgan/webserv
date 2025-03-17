@@ -33,9 +33,9 @@ class EPoll
 		EPoll();
 		~EPoll();
 
-		void addFd(int fd, uint32_t events);
-		void modifyFd(int fd, uint32_t events);
-		void removeFd(int fd);
+		void addFD(int fd, uint32_t events);
+		void modifyFD(int fd, uint32_t events);
+		void removeFD(int fd);
 		int wait();
 		struct epoll_event getEvent(int index);
 };

@@ -29,8 +29,7 @@ MANDATORY 	=	src/main.cpp \
 				src/HTTPRequest.cpp \
 				src/HTTPResponse.cpp \
 				src/ErrorPage.cpp \
-				src/Utilities.cpp \
-				# src/HttpRequest.cpp
+				src/Utilities.cpp
 SRC 		=	$(MANDATORY)
 OBJS_DIR	=	objs/
 OBJS		=	$(SRC:%.cpp=$(OBJS_DIR)%.o)

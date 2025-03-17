@@ -43,7 +43,7 @@ public:
 	void parseListenDirective(const std::string &listenValue, ServerConfig &serverConfig);
 	ServerConfigLocation parseLocationBlock(std::ifstream &file, const std::string &locationPath);
 	void locationParseKeyValue(std::istringstream &lineStream, const std::string &key, ServerConfigLocation &locationConfig);
-
+	size_t sizeConversion(const std::string &sizeStr);
 	std::string &ignoreComments(std::string &line);
 
 	void printConfig() const; //debug must delete

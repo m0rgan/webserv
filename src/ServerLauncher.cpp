@@ -56,7 +56,7 @@ void ServerLauncher::initServers(const std::string &configFile)
 	{
 		try
 		{
-			std::cout << "[INFO] Launching server: " << configs[i].getName() << std::endl;
+			std::cout << "[INFO] Launching server: " << configs[i].getServerName() << std::endl;
 			Server* server = new Server(configs[i]);
 			//handle new error?
 			if (server->sockets() == 0)
@@ -94,36 +94,47 @@ void ServerLauncher::loop()
 {
 	for (;;)
 	{
-		int numEvents = _epoll.wait();
-		for (int i = 0; i < numEvents; ++i)
+		int epollEvents = _epoll.wait();
+		for (int i = 0; i < epollEvents; ++i)
 		{
-			struct epoll_event event = _epoll.getEvent(i);
-			int fd = event.data.fd;
+			struct epoll_event epoll = _epoll.getEvent(i);
+			int fd = epoll.data.fd;
 
-			if (event.events & EPOLLIN)
+			if (epoll.events & (EPOLLHUP | EPOLLERR)) //| EPOLLNVAL
+			{
+				closeClient(fd);
+				continue;
+			}
+			if (epoll.events & EPOLLIN)
 			{
 				if (_servers.find(fd) != _servers.end())
 					newClient(fd);
 				else
 					existingClient(fd);
 			}
-			if (event.events & EPOLLOUT) //epollet and?
+			if (epoll.events & EPOLLOUT)
 			{
 				if (_clients.find(fd) != _clients.end())
+				{
 					if (_clients[fd]->hasPendingData())
 					{
 						_clients[fd]->writeResponse();
 						if (_clients[fd]->getSocket() == -1)// || request.isEmpty())
 							continue;
 						if (_clients[fd]->keepAlive())
-							_epoll.modifyFd(fd, EPOLLIN);
+							_epoll.modifyFD(fd, EPOLLIN);
 						else
 							closeClient(fd);
 					}
+				}
 			}
 		}
 	}
 }
+
+// The event bitmasks in events and revents have the following bits:
+//      POLLPRI        High priority data may be read without blocking.
+//      POLLWRBAND     Priority data may be written without blocking.
 
 void ServerLauncher::newClient(int serverFd)
 {
@@ -138,21 +149,10 @@ void ServerLauncher::newClient(int serverFd)
 	int clientFd = server->acceptClient(serverFd);
 	if (clientFd > 0)
 	{
-		_epoll.addFd(clientFd, EPOLLIN | EPOLLOUT);
+		_epoll.addFD(clientFd, EPOLLIN | EPOLLOUT);
 		_clients[clientFd] = new Client(clientFd, server->getConfig());
 	}
 }
-
-// The event bitmasks in events and revents have the following bits:
-//      POLLERR        An exceptional condition has occurred on the device or socket.  This flag is output
-//                     only, and ignored if present in the input events bitmask.
-//      POLLHUP        The device or socket has been disconnected.  This flag is output only, and ignored
-//                     if present in the input events bitmask.  Note that POLLHUP and POLLOUT are mutually
-//                     exclusive and should never be present in the revents bitmask at the same time.
-//      POLLNVAL       The file descriptor is not open.  This flag is output only, and ignored if present
-//                     in the input events bitmask.
-//      POLLPRI        High priority data may be read without blocking.
-//      POLLWRBAND     Priority data may be written without blocking.
 
 void ServerLauncher::existingClient(int clientFd)
 {
@@ -163,13 +163,26 @@ void ServerLauncher::existingClient(int clientFd)
 	try
 	{
 		HTTPRequest http = client->readRequest();
+		
+        // std::cout << "[DEBUG] Host header: " << http.getHost() << std::endl;
 		if (client->getSocket() == -1)
 			return;
+		Server* server = serverSelector(http);
+		// if (server)
+        // {
+        //     std::cout << "[DEBUG] Server name: " << server->getConfig().getServerName() << std::endl;
+        //     std::cout << "[DEBUG] Client server name: " << client->getServerConfig().getServerName() << std::endl;
+        // }
+		if (server && server->getConfig().getServerName() != client->getServerConfig().getServerName())
+		{
+			// std::cout << "[DEBUG] Changing server config for client FD: " << clientFd << std::endl;
+			client->setServerConfig(server->getConfig());
+		}
 		client->handleRequest(http);
 		if (client->hasPendingData())
-			_epoll.modifyFd(clientFd, EPOLLOUT);
+			_epoll.modifyFD(clientFd, EPOLLOUT);
 		else
-			_epoll.modifyFd(clientFd, EPOLLIN);
+			_epoll.modifyFD(clientFd, EPOLLIN);
 	}
 	catch (const std::exception &e)
 	{
@@ -178,9 +191,38 @@ void ServerLauncher::existingClient(int clientFd)
 	}
 }
 
+// 	Server Block Selection Rules
+// Nginx first looks for a server block with a matching listen directive and server_name.
+// If multiple blocks match, it picks the first one defined in the config.
+// If no server_name matches, it uses the first server block that matches the listen port.
+// If multiple blocks listen on the same port but with different server_name, Nginx will default to the first one in order.
+
+Server* ServerLauncher::serverSelector(const HTTPRequest &http)
+{
+	std::string host = http.getHost();
+	int port = http.getPort();
+
+	// std::cout << "[DEBUG] Looking for server for host: " << host << " and port: " << port << std::endl;
+	for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
+	{
+		const ServerConfig& config = it->second->getConfig();
+		const std::vector<int>& ports = config.getPorts();
+		for (size_t i = 0; i < ports.size(); ++i)
+		{
+			if (config.getServerName() == host && ports[i] == port)
+			{
+				// std::cout << "[DEBUG] Found server for host: " << host << " and port: " << port << std::endl;
+				return (it->second);
+			}
+		}
+	}
+	// std::cout << "[DEBUG] No server found for host: " << host << " and port: " << port << std::endl;
+	return (NULL);
+}
+
 void ServerLauncher::closeClient(int clientFd)
 {
-	_epoll.removeFd(clientFd);
+	_epoll.removeFD(clientFd);
 
 	if (_clients.find(clientFd) != _clients.end())
 	{

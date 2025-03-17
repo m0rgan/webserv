@@ -163,7 +163,7 @@ void Server::addSocketsToEpoll(EPoll &epollInstance)
 	for (size_t i = 0; i < _fds.size(); ++i)
 	{
 		int serverFd = _fds[i].fd;
-		epollInstance.addFd(serverFd, EPOLLIN);
+		epollInstance.addFD(serverFd, EPOLLIN);
 	}
 }
 

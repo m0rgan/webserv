@@ -36,6 +36,9 @@ Client &Client::operator=(Client const &rhs) //must finish
 
 Client::~Client(){}
 
+const ServerConfig& Client::getServerConfig() const {return _currentConfig;}
+void Client::setServerConfig(const ServerConfig &config) {_currentConfig = config;}
+
 HTTPRequest Client::readRequest()  //check return values to kill process??
 {
 	HTTPRequest	http;
@@ -54,7 +57,17 @@ HTTPRequest Client::readRequest()  //check return values to kill process??
 			if (!headersRead && _requestBuffer.find("\r\n\r\n") != std::string::npos)
 			{
 				headersRead = true;
-				http.parserHeaders(_requestBuffer);
+				try
+				{
+					http.parserHeaders(_requestBuffer);
+				}
+				catch (const std::runtime_error &e)
+				{
+					serveErrorResponse(400);
+					return (http);
+				}
+				if (http.request.contentLength == 0 && http.request.headers.find("Transfer-Encoding") == http.request.headers.end())
+					break;
 			}
 			if (headersRead && (lengthData(http) || chunkedData(http)))
 				break;
@@ -102,14 +115,25 @@ bool Client::chunkedData(HTTPRequest &http)
 
 bool Client::lengthData(HTTPRequest &http)
 {
-	if (http.request.headers.find("Content-Length") != http.request.headers.end())
-	{
-		size_t contentLength = stringTUL(http.request.headers["Content-Length"]);
-		size_t headersEndPos = _requestBuffer.find("\r\n\r\n") + 4;
-		if (_requestBuffer.size() - headersEndPos >= contentLength)
-			return (http.parserBody(_requestBuffer.substr(headersEndPos, contentLength)), true); // everything read
-	}
+	if (http.request.contentLength == 0)
+		return (true);
+
+	size_t contentLength = http.request.contentLength;
+	size_t headersEndPos = _requestBuffer.find("\r\n\r\n") + 4;
+	if (_requestBuffer.size() - headersEndPos >= contentLength)
+		return (http.parserBody(_requestBuffer.substr(headersEndPos, contentLength)), true); // everything read
 	return (false); //keep reading
+}
+
+bool Client::isMethodAllowed(const ServerConfigLocation *location, const std::string &method)
+{
+	if (location)
+	{
+		const std::vector<std::string> &methods = location->getAllowedMethods();
+		if (!methods.empty() && std::find(methods.begin(), methods.end(), method) == methods.end())
+			return (false);
+	}
+	return (true);
 }
 
 void Client::handleRequest(HTTPRequest &http)
@@ -119,7 +143,7 @@ void Client::handleRequest(HTTPRequest &http)
 	http.logRequest(getCurrentTimestamp());
 	// Request Processing
 	// If it’s a static file request, it locates the file and prepares a response.
-	// If it’s a FastCGI request, it communicates with PHP/CGI.
+	// If it’s a CGI request, it executes the file extension specified.
 
 	const ServerConfigLocation *matchedLocation = matchLocation(http);
 	if (locationReturn(matchedLocation))
@@ -127,11 +151,24 @@ void Client::handleRequest(HTTPRequest &http)
 	if (serverReturn())
 		return;
 
+	if (matchedLocation && !isMethodAllowed(matchedLocation, http.request.method))
+	{
+		serveErrorResponse(405);
+		return;
+	}
+
+	if (http.request.contentLength > _currentConfig.getMaxBodySize())
+	{
+		serveErrorResponse(413);
+		return;
+	}
+
 	try 
 	{
-		if (cgi.routeToCGI(http.request.uri))
+		if (routeToCGI(http.request.uri))
 		{
-			cgi.execute(http);
+			CGI cgi(_currentConfig);
+			cgi.execute(&http);
 			return;
 		}
 	}
@@ -150,6 +187,20 @@ void Client::handleRequest(HTTPRequest &http)
 	else
 		prepareErrorResponse(405, "text/plain", "405 Method Not Allowed");
 }
+
+bool Client::routeToCGI(std::string requestURI)
+{
+	size_t dotPos = requestURI.find_last_of('.');
+	if (dotPos == std::string::npos)
+		return (false);
+	std::string extension = requestURI.substr(dotPos);
+	//manage the extension being in upper/lowercase??
+
+	//check for extensions as parameter to decide true return, is this how nginx work?
+	if (extension == ".php" || extension == ".py")
+		return (true);
+	return (false);
+};
 
 const ServerConfigLocation* Client::matchLocation(const HTTPRequest &http) const
 {

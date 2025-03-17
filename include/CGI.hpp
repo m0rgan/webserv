@@ -37,20 +37,22 @@ struct envCGI
 class CGI
 {
 	private:
-		std::string _fullPath;
-		std::string _requestBody;
-		std::string _cgiProgram;
-		std::vector<char *> _argv;
-		envCGI _envBuffer;
-		std::vector<char *> _env;
+		std::string			_fullPath;
+		std::string			_requestBody;
+		std::string			_cgiProgram;
+		std::vector<char *>	_argv;
+		envCGI				_envBuffer;
+		std::vector<char *>	_env;
+		ServerConfig		_currentConfig;
+
 	public:
 		CGI(void);
 		CGI(CGI const &src);
 		CGI &operator=(CGI const &rhs);
 		~CGI(void);
 
-		bool routeToCGI(std::string requestURI);
-		void execute(const HTTPRequest &http);
+		CGI(ServerConfig const &currentConfig);
+		void execute(HTTPRequest *http);
 		void parser(const HTTPRequest &http, const std::string serverRoot);
 };
 

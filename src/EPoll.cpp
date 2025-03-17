@@ -24,7 +24,7 @@ EPoll::~EPoll()
 	close(_epollFd);
 }
 
-void EPoll::addFd(int fd, uint32_t events)
+void EPoll::addFD(int fd, uint32_t events)
 {
 	struct epoll_event ev;
 	ev.events = events;
@@ -36,7 +36,7 @@ void EPoll::addFd(int fd, uint32_t events)
 	_fdEvents[fd] = events;
 }
 
-void EPoll::modifyFd(int fd, uint32_t events)
+void EPoll::modifyFD(int fd, uint32_t events)
 {
 	struct epoll_event ev;
 	ev.events = events;
@@ -48,7 +48,7 @@ void EPoll::modifyFd(int fd, uint32_t events)
 	_fdEvents[fd] = events;
 }
 
-void EPoll::removeFd(int fd)
+void EPoll::removeFD(int fd)
 {
 	if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, fd, NULL) == -1)
 		throw std::runtime_error("Failed to remove fd from epoll");

@@ -57,6 +57,7 @@ class Client
 		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl);
 		void	prepareErrorResponse(int statusCode, const std::string &contentType, const std::string &body);
 		void	serveErrorResponse(int statusCode);
+		bool	routeToCGI(std::string requestURI);
 
 	public:
 		Client(void);
@@ -72,6 +73,11 @@ class Client
 
 		int getSocket() const;
 		bool keepAlive() const;
+
+		bool isMethodAllowed(const ServerConfigLocation *location, const std::string &method);
+
+		const ServerConfig& getServerConfig() const;
+		void setServerConfig(const ServerConfig &config);
 };
 
 #endif

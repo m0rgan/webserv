@@ -23,17 +23,18 @@ class ServerConfigLocation
 	private:
 		std::string									_uri;
 		std::string									_root;
+		std::string									_alias;
 		std::vector<std::string>					_indexFiles;
 		bool										_autoIndex;
 		std::map<int, std::string>					_errorPages;
 		std::string									_proxyPass;
-		int											_maxBodySize;
+		size_t										_maxBodySize;
 		std::vector<std::string>					_allowedMethods;
 		std::map<std::string, std::string>			_cgiHandlers;
 		std::map<std::string, std::string>			_headers;
 		std::map<std::string, ServerConfigLocation>	_nestedLocations;
 		std::pair<int, std::string>					_returnDirective;
-    	bool										_hasReturnDirective;
+		bool										_hasReturnDirective;
 
 	public:
 		ServerConfigLocation();
@@ -65,10 +66,12 @@ class ServerConfigLocation
 		int getReturnStatusCode() const;
 		const std::string &getReturnUrl() const;
 		const std::pair<int, std::string> &getReturnDirectives() const;
-		void setMaxBodySize(int size);
-		int getMaxBodySize() const;
+		void setMaxBodySize(size_t size);
+		size_t getMaxBodySize() const;
 		void addNestedLocation(const std::string &uri, const ServerConfigLocation &location);
 		const std::map<std::string, ServerConfigLocation> &getNestedLocations() const;
+		void setAlias(const std::string &alias);
+		const std::string &getAlias() const;
 
 		bool matchesURI(const std::string &requestURI) const;
 

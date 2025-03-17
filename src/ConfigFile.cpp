@@ -45,7 +45,7 @@ bool ConfigFile::isDuplicateServer(const std::vector<ServerConfig> &servers, con
 
 	for (i = 0; i < servers.size(); ++i)
 	{
-		if (servers[i].getName() == newServer.getName())
+		if (servers[i].getServerName() == newServer.getServerName())
 		{
 			const std::vector<int> &ports = servers[i].getPorts();
 			for (j = 0; j < ports.size(); ++j)
@@ -245,21 +245,18 @@ void ConfigFile::serverParseKeyValue(std::istringstream &lineStream, const std::
 	}
 	else if (key == "client_max_body_size")
 	{
-		int size;
-		lineStream >> size;
-		serverConfig.setMaxBodySize(size);
-	}
-	else if (key == "log_access")
-	{
-		std::string path;
-		lineStream >> path;
-		serverConfig.setLogAccessFile(path);
-	}
-	else if (key == "log_error")
-	{
-		std::string path;
-		lineStream >> path;
-		serverConfig.setLogErrorFile(path);
+		std::string sizeStr;
+		lineStream >> sizeStr;
+
+		try
+		{
+			size_t maxSize = sizeConversion(sizeStr);
+			serverConfig.setMaxBodySize(maxSize);
+		}
+		catch (const std::invalid_argument &e)
+		{
+			throw std::runtime_error("Error: invalid client_max_body_size.");
+		}
 	}
 	else if (key == "return")
 	{
@@ -280,6 +277,12 @@ void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std
 		lineStream >> root;
 		locationConfig.setRoot(root);
 	}
+	else if (key == "alias")
+    {
+        std::string alias;
+        lineStream >> alias;
+        locationConfig.setAlias(alias);
+    }
 	else if (key == "index")
 	{
 		std::string file;
@@ -298,11 +301,26 @@ void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std
 		lineStream >> proxyPass;
 		locationConfig.setProxyPass(proxyPass);
 	}
-	else if (key == "proxy_pass")
+	else if (key == "limit_except")
 	{
-		std::string proxyPass;
-		lineStream >> proxyPass;
-		locationConfig.setProxyPass(proxyPass);
+		std::string method;
+		while (lineStream >> method)
+			locationConfig.addAllowedMethod(method);
+	}
+	else if (key == "client_max_body_size")
+	{
+		std::string sizeStr;
+		lineStream >> sizeStr;
+
+		try
+		{
+			size_t maxSize = sizeConversion(sizeStr);
+			locationConfig.setMaxBodySize(maxSize);
+		}
+		catch (const std::invalid_argument &e)
+		{
+			throw std::runtime_error("Error: invalid client_max_body_size.");
+		}
 	}
 	else if (key == "return")
 	{
@@ -313,6 +331,32 @@ void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std
 	}
 	else
 		throw std::invalid_argument("Unknown directive '" + key + "' in server configuration.");
+}
+
+size_t ConfigFile::sizeConversion(const std::string &sizeStr)
+{
+	if (sizeStr.empty())
+		throw std::invalid_argument("Error: client_max_body_size cannot be empty.");
+
+	std::stringstream ss(sizeStr);
+	size_t value;
+	char unit = '\0';
+
+	ss >> value;
+	if (!ss.eof())
+		ss >> unit;
+	unit = std::toupper(unit);
+
+	switch (unit)
+	{
+		case 'K': value *= 1024; break;
+		case 'M': value *= 1024 * 1024; break;
+		case 'G': value *= 1024 * 1024 * 1024; break;
+		case '\0': break;
+		default:
+			throw std::invalid_argument("Error: Invalid unit in client_max_body_size: " + sizeStr);
+	}
+	return (value);
 }
 
 // 5. Exposing Nginx to the Internet
@@ -355,12 +399,6 @@ void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std
 //     proxy_set_header X-Real-IP $remote_addr;
 // }
 
-//location ~ \.php$ {
-//     fastcgi_pass unix:/run/php/php7.4-fpm.sock;
-//     fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-//     include fastcgi_params;
-// }
-
 // location /ws/ {
 //     proxy_pass http://backend;
 //     proxy_http_version 1.1;
@@ -389,7 +427,7 @@ void ConfigFile::printConfig() const
 	{
 		const ServerConfig &config = _serverBlockConfig[i];
 		std::cout << "Server " << i + 1 << ":" << std::endl;
-		std::cout << "  Server Name: " << config.getName() << std::endl;
+		std::cout << "  Server Name: " << config.getServerName() << std::endl;
 		std::cout << "  Ports: ";
 		const std::vector<int> &ports = config.getPorts();
 		for (size_t j = 0; j < ports.size(); ++j)
@@ -440,8 +478,6 @@ void ConfigFile::printConfig() const
 		std::cout << std::endl;
 		std::cout << "  Autoindex: " << (config.getAutoIndex() ? "on" : "off") << std::endl;
 		std::cout << "  Max Body Size: " << config.getMaxBodySize() << std::endl;
-		std::cout << "  Log Access File: " << config.getLogAccessFile() << std::endl;
-		std::cout << "  Log Error File: " << config.getLogErrorFile() << std::endl;
 		std::cout << "  Return Directives: ";
 		if (config.hasReturnDirective())
 		{

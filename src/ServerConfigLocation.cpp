@@ -12,14 +12,15 @@
 
 #include "ServerConfigLocation.hpp"
 
-ServerConfigLocation::ServerConfigLocation() : _autoIndex(false), _maxBodySize(0), _hasReturnDirective(false) {}
-ServerConfigLocation::ServerConfigLocation(const std::string &uri) : _uri(uri), _autoIndex(false), _maxBodySize(0), _hasReturnDirective(false) {}
+ServerConfigLocation::ServerConfigLocation() : _autoIndex(false), _maxBodySize(1048576), _hasReturnDirective(false) {}
+ServerConfigLocation::ServerConfigLocation(const std::string &uri) : _uri(uri), _autoIndex(false), _maxBodySize(1048576), _hasReturnDirective(false) {}
 ServerConfigLocation::ServerConfigLocation(const ServerConfigLocation &src) {*this = src;} //fix
 ServerConfigLocation &ServerConfigLocation::operator=(const ServerConfigLocation &rhs)
 {
 	if (this != &rhs)
 	{
 		this->_uri = rhs._uri;
+		this->_alias = rhs._alias;
 		this->_root = rhs._root;
 		this->_indexFiles = rhs._indexFiles;
 		this->_allowedMethods = rhs._allowedMethods;
@@ -66,10 +67,12 @@ bool ServerConfigLocation::hasReturnDirective() const {return _hasReturnDirectiv
 int ServerConfigLocation::getReturnStatusCode() const {return _returnDirective.first;}
 const std::string &ServerConfigLocation::getReturnUrl() const {return _returnDirective.second;}
 const std::pair<int, std::string> &ServerConfigLocation::getReturnDirectives() const {return _returnDirective;}
-void ServerConfigLocation::setMaxBodySize(int size) { _maxBodySize = size; }
-int ServerConfigLocation::getMaxBodySize() const { return _maxBodySize; }
+void ServerConfigLocation::setMaxBodySize(size_t size) { _maxBodySize = size; }
+size_t ServerConfigLocation::getMaxBodySize() const { return _maxBodySize; }
 void ServerConfigLocation::addNestedLocation(const std::string &uri, const ServerConfigLocation &location){_nestedLocations[uri] = location;}
 const std::map<std::string, ServerConfigLocation> &ServerConfigLocation::getNestedLocations() const {return _nestedLocations; }
+void ServerConfigLocation::setAlias(const std::string &alias) { this->_alias = alias; }
+const std::string &ServerConfigLocation::getAlias() const { return this->_alias; }
 
 bool ServerConfigLocation::matchesURI(const std::string &requestURI) const
 {
