@@ -47,6 +47,7 @@ class HTTPResponse
 		std::string toString() const;
 		static std::map<int, std::string> initStatusMap();
 		static std::string convertTime(time_t time);
+		HTTPResponse &addRawHeaders(const std::string &rawHeaders);
 		void logResponse(const std::string &timestamp) const;
 };
 

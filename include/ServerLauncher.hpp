@@ -30,6 +30,7 @@ class ServerLauncher
 		std::map<int, Server*>	_servers;
 		std::map<int, Client*>	_clients;
 		EPoll					_epoll;
+		SessionManagement		_sessionManager;
 
 		void newClient(int serverFd);
 		void existingClient(int clientFd);

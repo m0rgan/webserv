@@ -32,6 +32,12 @@ struct envCGI
 	std::string reqUri;
 	std::string pathInfo;
 	std::string scriptFilename;
+	std::string contentLength;
+	std::string redirectStatus;
+	std::string sessionID;
+	std::string userAgent;
+	std::string host;
+	std::string referer;
 };
 
 class CGI
@@ -44,6 +50,7 @@ class CGI
 		envCGI				_envBuffer;
 		std::vector<char *>	_env;
 		ServerConfig		_currentConfig;
+		std::string			_cgiOutput;
 
 	public:
 		CGI(void);
@@ -53,7 +60,9 @@ class CGI
 
 		CGI(ServerConfig const &currentConfig);
 		void execute(HTTPRequest *http);
-		void parser(const HTTPRequest &http, const std::string serverRoot);
+		void parser(const HTTPRequest &http);
+		void setupEnvironment(const HTTPRequest &http);
+		std::string const getOutput(void);
 };
 
 #endif

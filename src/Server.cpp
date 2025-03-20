@@ -99,7 +99,7 @@ int Server::sockets()
 
 int Server::createSocket(int protocol)
 {
-	int fd = socket(protocol, SOCK_STREAM, 0);
+	int fd = socket(protocol, SOCK_STREAM | SOCK_CLOEXEC, 0);
 	if (fd == -1)
 		throw std::runtime_error(std::string("socket fnct: ") + strerror(errno));
 	return (fd);
@@ -118,6 +118,7 @@ int Server::configureSocket(int serverSocket)
 		return (std::cerr << "setsockopt: " << strerror(errno) << std::endl, close(serverSocket), 1);
 	if (fcntl(serverSocket, F_SETFL, O_NONBLOCK) == 1)
 		return (std::cerr << "fcntl: " << strerror(errno) << std::endl, close(serverSocket), 1);
+	setCloexecFlag(serverSocket);
 	return (0);
 }
 

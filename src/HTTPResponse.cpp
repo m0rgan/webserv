@@ -122,6 +122,27 @@ HTTPResponse &HTTPResponse::setHeader(const std::string &key, const std::string 
 	return (*this);
 }
 
+HTTPResponse &HTTPResponse::addRawHeaders(const std::string &rawHeaders)
+{
+	std::istringstream stream(rawHeaders);
+	std::string line;
+	while (std::getline(stream, line))
+	{
+		size_t colonPos = line.find(':');
+		if (colonPos != std::string::npos)
+		{
+			std::string key = line.substr(0, colonPos);
+			std::string value = line.substr(colonPos + 1);
+			key.erase(0, key.find_first_not_of(" \t"));
+			key.erase(key.find_last_not_of(" \t") + 1);
+			value.erase(0, value.find_first_not_of(" \t"));
+			value.erase(value.find_last_not_of(" \t") + 1);
+			_headers[key] = value;
+		}
+	}
+	return (*this);
+}
+
 HTTPResponse &HTTPResponse::setBody(const std::string &data)
 {
 	_body = data;
@@ -195,7 +216,7 @@ void HTTPResponse::logResponse(const std::string &timestamp) const
 	std::cout << _protocol << " " << _statusLine.first << " " << _statusLine.second << std::endl;
 	// for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
 	// 	std::cout << it->first << ": " << it->second << std::endl;
-	// if (!_body.empty())
+	// // if (!_body.empty())
 	// 	std::cout << std::endl << _body << std::endl;
 	std::cout << RESET;
 }

@@ -20,6 +20,8 @@
 #include <sstream>
 #include <cctype>
 #include <algorithm>
+#include <fcntl.h>
+#include <iostream>
 
 
 #define BLUE "\033[34m"
@@ -31,5 +33,7 @@
 std::string		getMimeType(const std::string &extension);
 std::string		getCurrentTimestamp();
 unsigned long	stringTUL(const std::string &str);
+void			setCloexecFlag(int fd);
+void			trimWhitespaces(std::string &s);
 
 #endif

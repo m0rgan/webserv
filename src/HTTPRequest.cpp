@@ -148,6 +148,7 @@ std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 			std::ifstream file(indexPath.c_str());
 			if (file.good())
 				return (indexPath);
+			//what does nginx do when the is not index directive?
 		}
 	}
 

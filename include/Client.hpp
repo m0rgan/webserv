@@ -21,6 +21,8 @@
 #include "Utilities.hpp"
 #include <HTTPResponse.hpp>
 #include <ErrorPage.hpp>
+#include <SessionManagement.hpp>
+#include <Cookies.hpp>
 
 #include <sstream>
 #include <fstream>
@@ -54,15 +56,19 @@ class Client
 		bool	serverReturn(void);
 		bool	locationReturn(const ServerConfigLocation *location);
 		bool	handleReturnDirective(int statusCode, const std::string &redirectUrl);
-		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl);
+		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders);
 		void	prepareErrorResponse(int statusCode, const std::string &contentType, const std::string &body);
 		void	serveErrorResponse(int statusCode);
 		bool	routeToCGI(std::string requestURI);
-		void	resetState(void);
+		
+		SessionManagement	&_sessionManager;
+		Cookies				_cookies;
+		void				handleCookies(HTTPRequest &http);
+		std::string			extractHeadersFromCGIOutput(std::string &cgiOutput);
 
 	public:
 		Client(void);
-		Client(int socket, const ServerConfig& config);
+		Client(int socket, const ServerConfig &config, SessionManagement &sessionManager);
 		Client(Client const &src);
 		Client &operator=(Client const &rhs);
 		~Client(void);
@@ -71,14 +77,15 @@ class Client
 		void handleRequest(HTTPRequest &http);
 		bool hasPendingData() const;
 		void writeResponse();
-
+		
 		int getSocket() const;
 		bool keepAlive() const;
-
+		
 		bool isMethodAllowed(const ServerConfigLocation *location, const std::string &method);
-
+		
 		const ServerConfig& getServerConfig() const;
 		void setServerConfig(const ServerConfig &config);
-};
+		void	resetState(void);
+	};
 
 #endif

@@ -12,11 +12,11 @@
 
 #include "Client.hpp"
 
-Client::Client(void) {} //tbd??
+Client::Client(void) : _sessionManager(*(new SessionManagement())) {} //tbd??
 
-Client::Client(int socket, const ServerConfig &config) : _clientSocket(socket), _bytesSent(0), _currentConfig(config){}
+Client::Client(int socket, const ServerConfig &config, SessionManagement &sessionManager) : _clientSocket(socket), _bytesSent(0), _currentConfig(config), _sessionManager(sessionManager) { setCloexecFlag(_clientSocket); }
 
-Client::Client(Client const &src) : _clientSocket(src._clientSocket), _requestBuffer(src._requestBuffer), _responseBuffer(src._responseBuffer), _bytesSent(src._bytesSent), _currentConfig(src._currentConfig)
+Client::Client(Client const &src) : _clientSocket(src._clientSocket), _requestBuffer(src._requestBuffer), _responseBuffer(src._responseBuffer), _bytesSent(src._bytesSent), _currentConfig(src._currentConfig), _sessionManager(src._sessionManager)
 {
 	return;
 }
@@ -36,8 +36,8 @@ Client &Client::operator=(Client const &rhs) //must finish
 
 Client::~Client(){}
 
-const ServerConfig& Client::getServerConfig() const {return _currentConfig;}
-void Client::setServerConfig(const ServerConfig &config) {_currentConfig = config;}
+const ServerConfig& Client::getServerConfig() const { return _currentConfig; }
+void Client::setServerConfig(const ServerConfig &config) { _currentConfig = config; }
 
 HTTPRequest Client::readRequest()  //check return values to kill process??
 {
@@ -136,14 +136,27 @@ bool Client::isMethodAllowed(const ServerConfigLocation *location, const std::st
 	return (true);
 }
 
-void Client::handleRequest(HTTPRequest &http)
+void Client::handleCookies(HTTPRequest &http)
 {
-	CGI cgi;
-	
+	if (http.request.headers.find("Cookie") != http.request.headers.end())
+		_cookies.parse(http.request.headers["Cookie"]);
+	std::string sessionID = _cookies.getCookie("SESSIONID");
+	if (!sessionID.empty() && !_sessionManager.sessionExists(sessionID)) 
+		_sessionManager.createSession(sessionID);
+	else if (sessionID.empty()) 
+	{
+		sessionID = _sessionManager.createSession("");
+		_cookies.setCookie("SESSIONID", sessionID);
+	} 
+	std::map<std::string, std::string> &session = _sessionManager.getSession(sessionID);
+	session["last_access"] = getCurrentTimestamp();
+}
+
+void Client::handleRequest(HTTPRequest &http)
+{	
 	http.logRequest(getCurrentTimestamp());
-	// Request Processing
-	// If it’s a static file request, it locates the file and prepares a response.
-	// If it’s a CGI request, it executes the file extension specified.
+
+	handleCookies(http);
 
 	const ServerConfigLocation *matchedLocation = matchLocation(http);
 	if (locationReturn(matchedLocation))
@@ -163,12 +176,25 @@ void Client::handleRequest(HTTPRequest &http)
 		return;
 	}
 
+	std::string filePath = http.resolveFilePath(_currentConfig);
+	if (filePath.empty())
+	{
+		serveErrorResponse(404);
+		return;
+	}
+	
 	try 
 	{
-		if (routeToCGI(http.request.uri))
+		if (routeToCGI(filePath))
 		{
 			CGI cgi(_currentConfig);
 			cgi.execute(&http);
+			std::string cgiOutput = cgi.getOutput();
+			std::string cgiHeaders = extractHeadersFromCGIOutput(cgiOutput);
+			std::string setCookieHeaders = _cookies.generateSetCookieHeader();
+			if (!setCookieHeaders.empty())
+				cgiHeaders += setCookieHeaders;
+			prepareResponse(200, "text/html", cgiOutput, "", cgiHeaders);
 			return;
 		}
 	}
@@ -196,15 +222,23 @@ void Client::resetState()
 	_bytesSent = 0;
 }
 
+std::string Client::extractHeadersFromCGIOutput(std::string &cgiOutput)
+{
+	size_t headerEnd = cgiOutput.find("\r\n\r\n");
+	if (headerEnd == std::string::npos)
+		return ("");
+
+	std::string headers = cgiOutput.substr(0, headerEnd + 2);
+	cgiOutput = cgiOutput.substr(headerEnd + 4);
+	return (headers);
+}
+
 bool Client::routeToCGI(std::string requestURI)
 {
 	size_t dotPos = requestURI.find_last_of('.');
 	if (dotPos == std::string::npos)
 		return (false);
 	std::string extension = requestURI.substr(dotPos);
-	//manage the extension being in upper/lowercase??
-
-	//check for extensions as parameter to decide true return, is this how nginx work?
 	if (extension == ".php" || extension == ".py")
 		return (true);
 	return (false);
@@ -227,8 +261,8 @@ bool Client::handleReturnDirective(int statusCode, const std::string &redirectUr
 		serveErrorResponse(statusCode);
 		return (true);
 	}
-	std::string body = "Redirecting to " + redirectUrl;
-	prepareResponse(statusCode, "text/plain", body, redirectUrl);
+	std::string body = "Redirecting to " + redirectUrl; //can delete
+	prepareResponse(statusCode, "text/plain", body, redirectUrl, "");
 	return (true);
 }
 
@@ -302,8 +336,7 @@ void Client::writeResponse()
 	{
 		if (_requestBuffer.find("Connection: keep-alive") != std::string::npos)
 		{
-			_responseBuffer.clear();
-			_bytesSent = 0;
+			resetState();
 			_keepAlive = true;
 		}
 		else
@@ -335,7 +368,7 @@ void Client::handleGET(HTTPRequest	*http)
 	if (dotPos != std::string::npos)
 		fileExtension = filePath.substr(dotPos);
 	std::string mimeType = getMimeType(fileExtension);
-	prepareResponse(200, mimeType, body, "");
+	prepareResponse(200, mimeType, body, "", "");
 }
 
 void Client::handlePOST(HTTPRequest *http)
@@ -425,7 +458,7 @@ void Client::handlePOST(HTTPRequest *http)
 		file << http->request.body;
 		file.close();
 	}
-	prepareResponse(200, "text/plain", "File uploaded successfully\n", "");
+	prepareResponse(200, "text/plain", "File uploaded successfully\n", "", "");
 }
 
 void Client::handleDELETE(HTTPRequest *http)
@@ -442,12 +475,12 @@ void Client::handleDELETE(HTTPRequest *http)
 	}
 	std::string filePath = root + "/" + filename;
 	if (std::remove(filePath.c_str()) == 0)
-		prepareResponse(200, "text/plain", "File deleted successfully", "");
+		prepareResponse(200, "text/plain", "File deleted successfully", "", "");
 	else
 		serveErrorResponse(404);
 }
 
-void Client::prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirect = "")
+void Client::prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirect = "", const std::string &additionalHeaders = "")
 {
 	if (ErrorPage::isErrorStatusCode(statusCode))
 	{
@@ -466,6 +499,8 @@ void Client::prepareResponse(int statusCode, const std::string &contentType, con
 		response.setHeader("Location", redirect)
 				.setHeader("Connection", "close");
 	}
+	if (!additionalHeaders.empty())
+		response.addRawHeaders(additionalHeaders);
 	_responseBuffer = response.toString();
 	response.logResponse(getCurrentTimestamp());
 }

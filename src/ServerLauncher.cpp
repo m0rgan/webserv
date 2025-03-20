@@ -152,8 +152,9 @@ void ServerLauncher::newClient(int serverFd)
 	int clientFd = server->acceptClient(serverFd);
 	if (clientFd > 0)
 	{
+		setCloexecFlag(clientFd);
 		_epoll.addFD(clientFd, EPOLLIN | EPOLLOUT);
-		_clients[clientFd] = new Client(clientFd, server->getConfig());
+		_clients[clientFd] = new Client(clientFd, server->getConfig(), _sessionManager);
 	}
 }
 

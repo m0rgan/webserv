@@ -90,32 +90,74 @@ std::string unchunk(const std::string &chunkedBody)
 	return (unchunked);
 }
 
-
-void CGI::parser(const HTTPRequest &http, const std::string serverRoot)
+void CGI::setupEnvironment(const HTTPRequest &http)
 {
-	size_t extPos = http.request.uri.find_last_of('.');
-	if (extPos == std::string::npos || http.request.uri.substr(extPos) != ".php")
-		return; // not php - must make dynamic for other extensions
-	_fullPath = serverRoot + http.request.uri; // use as PATH_INFO macro, must revise
-	// PATH_INFO and SCRIPT_FILENAME use full path so CGI knows which file to execute
 	_envBuffer.reqMethod = "REQUEST_METHOD=" + http.request.method;
 	_envBuffer.reqUri = "REQUEST_URI=" + http.request.uri;
 	_envBuffer.pathInfo = "PATH_INFO=" + _fullPath;
 	_envBuffer.scriptFilename = "SCRIPT_FILENAME=" + _fullPath;
-	// more variables are needed?
+
+	if (http.request.headers.count("Content-Length"))
+		_envBuffer.contentLength = "CONTENT_LENGTH=" + http.request.headers.at("Content-Length");
+	else
+		_envBuffer.contentLength = "CONTENT_LENGTH=0";
+
+	if (http.request.headers.count("User-Agent"))
+		_envBuffer.userAgent = "HTTP_USER_AGENT=" + http.request.headers.at("User-Agent");
+	if (http.request.headers.count("Host"))
+		_envBuffer.host = "HTTP_HOST=" + http.request.headers.at("Host");
+	if (http.request.headers.count("Referer"))
+		_envBuffer.referer = "HTTP_REFERER=" + http.request.headers.at("Referer");
 
 	_env.clear();
+	if (_fullPath.find(".php") != std::string::npos)
+	{
+		_envBuffer.redirectStatus = "REDIRECT_STATUS=1";
+		_env.push_back(const_cast<char*>(_envBuffer.redirectStatus.c_str()));
+	}
 	_env.push_back(const_cast<char*>(_envBuffer.reqMethod.c_str()));
 	_env.push_back(const_cast<char*>(_envBuffer.reqUri.c_str()));
 	_env.push_back(const_cast<char*>(_envBuffer.pathInfo.c_str()));
 	_env.push_back(const_cast<char*>(_envBuffer.scriptFilename.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.contentLength.c_str()));
+
+	if (!_envBuffer.userAgent.empty())
+		_env.push_back(const_cast<char*>(_envBuffer.userAgent.c_str()));
+	if (!_envBuffer.host.empty())
+		_env.push_back(const_cast<char*>(_envBuffer.host.c_str()));
+	if (!_envBuffer.referer.empty())
+		_env.push_back(const_cast<char*>(_envBuffer.referer.c_str()));
+
 	_env.push_back(NULL);
+}
+
+
+
+void CGI::parser(const HTTPRequest &http)
+{
+	_env.clear();
 	_argv.clear();
-	_argv.push_back(const_cast<char*>(_cgiProgram.c_str()));
-	_argv.push_back(const_cast<char*>(_fullPath.c_str())); //how do it make first argument the file????
+	setupEnvironment(http);
+	
+	std::string sessionID;
+	if (http.request.headers.find("Cookie") != http.request.headers.end())
+	{
+		std::string cookies = http.request.headers.at("Cookie");
+		size_t pos = cookies.find("SESSIONID=");
+		if (pos != std::string::npos)
+		{
+			size_t end = cookies.find(";", pos);
+			sessionID = cookies.substr(pos + 9, (end == std::string::npos) ? end : end - (pos + 9));
+		}
+	}
+	if (!sessionID.empty())
+	{
+		_envBuffer.sessionID = "SESSIONID=" + sessionID;
+		_env.push_back(const_cast<char*>(_envBuffer.sessionID.c_str()));
+	}
+	_argv.push_back(const_cast<char*>(_fullPath.c_str()));
 	_argv.push_back(NULL);
 
-	// unchunk body so CGI gets EOF as end of input
 	_requestBody = http.request.body;
 	std::map<std::string, std::string>::const_iterator it = http.request.headers.find("Transfer-Encoding");
 	if (it != http.request.headers.end() && it->second == "chunked")
@@ -124,10 +166,8 @@ void CGI::parser(const HTTPRequest &http, const std::string serverRoot)
 
 void CGI::execute(HTTPRequest *http)
 {
-	std::string filePath = http->resolveFilePath(_currentConfig);
-	const std::string serverRoot = "/var/www"; // must change to dynamic decision
-	const std::string cgiProgram = "/usr/bin/php-cgi"; // must change to dynamic decision
-	parser(*http, serverRoot);
+	_fullPath = http->resolveFilePath(_currentConfig);
+	parser(*http);
 	int pipe_in[2];  // for input to CGI
 	int pipe_out[2]; // for output from CGI
 	if (pipe(pipe_in) < 0 || pipe(pipe_out) < 0)
@@ -148,41 +188,60 @@ void CGI::execute(HTTPRequest *http)
 		if (pos != std::string::npos)
 		{
 			std::string dirPath = _fullPath.substr(0, pos);
+			// std::cout << dirPath.c_str() << std::endl;
 			chdir(dirPath.c_str());
 		}
-		(dup2(pipe_in[0], STDIN_FILENO), dup2(pipe_out[1], STDOUT_FILENO));
+		(dup2(pipe_in[0], STDIN_FILENO), dup2(pipe_out[1], STDOUT_FILENO), dup2(pipe_out[1], STDERR_FILENO));
 		(close(pipe_in[1]), close(pipe_out[0]));
-		execve(cgiProgram.c_str(), _argv.data(), _env.data());
+		//setcloexec???
+		
+		if (access(_argv[0], F_OK | R_OK | X_OK) == -1)
+			std::cerr << "Error: Script not found/not readable/not executable: " << strerror(errno) << std::endl;
+		execve(_argv[0], _argv.data(), _env.data());
+
 		std::cerr << "Error: CGI execve failed" << std::endl;
 		(close(pipe_in[0]), close(pipe_out[1])); //confirm this is correct?
-		kill(0, SIGTERM); // will this handle exit correctly?
+		kill(0, SIGTERM); // will this handle exit correctly? use try catch?
 	}
 	else
 	{
 		(close(pipe_in[0]), close(pipe_out[1]));
 
-		// if request is POST, write body to CGI reading pipe end
-		if (http->request.method == "POST" && !_requestBody.empty())
+		if ((http->request.method == "POST" || http->request.method == "DELETE") && !_requestBody.empty())
 		{
 			ssize_t bytesWritten = write(pipe_in[1], _requestBody.c_str(), _requestBody.size());
-			// change write to send?
 			if (bytesWritten < 0)
 				std::cerr << "Error: writing to CGI failed" << std::endl;
+			// std::cout << _requestBody.c_str() << std::endl;
 		}
 		close(pipe_in[1]);
-
-		// read the CGI pipe output
-		// change to recv?
 		// if no Content-Length header read until EOF
 		char buffer[4096];
-		std::string cgiOutput;
+		
 		ssize_t bytesRead;
 		while ((bytesRead = read(pipe_out[0], buffer, sizeof(buffer))) > 0)
-			cgiOutput.append(buffer, bytesRead);
+			_cgiOutput.append(buffer, bytesRead);
+		if (bytesRead < 0)
+			std::cerr << "Error: Failed to read from CGI pipe: " << strerror(errno) << std::endl;
 		close(pipe_out[0]);
 
 		int status;
-		waitpid(pid, &status, 0);
-		std::cout << "CGI Output:\n" << cgiOutput << std::endl; //debug to check output
+		if (waitpid(pid, &status, 0) == -1)
+			std::cerr << "Error: Failed to wait for child process: " << strerror(errno) << std::endl;
+		else
+		{
+			if (WIFEXITED(status) && WEXITSTATUS(status) == 0) // != 0 ERROR
+				return; // sendErrorResponseToClient(500, "Internal Server Error");std::cerr << "CGI script exited with status: " << WEXITSTATUS(status) << std::endl;
+			else if (WIFSIGNALED(status))
+				std::cerr << "CGI script was terminated by signal: " << WTERMSIG(status) << std::endl;
+			else
+				std::cerr << "CGI script exited with unknown status." << std::endl;
+		}
+		// std::cout << "CGI Output:\n" << _cgiOutput << std::endl;
 	}
 };
+
+std::string const CGI::getOutput(void)
+{
+	return (_cgiOutput);
+}
