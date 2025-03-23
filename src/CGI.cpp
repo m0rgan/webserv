@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 10:46:00 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/23 10:46:00 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -36,7 +36,7 @@ CGI &CGI::operator=(CGI const &rhs)
 
 CGI::~CGI(void){};
 
-CGI::CGI(ServerConfig const &currentConfig) : _currentConfig(currentConfig) {}
+CGI::CGI(ConfigFileServer const &currentConfig) : _currentConfig(currentConfig) {}
 
 unsigned long hexToULong(const std::string &hexStr)
 {
@@ -167,6 +167,7 @@ void CGI::parser(const HTTPRequest &http)
 void CGI::execute(HTTPRequest *http)
 {
 	_fullPath = http->resolveFilePath(_currentConfig);
+	// std::cout << "CGI FILE PATH : " << _fullPath << std::endl;
 	parser(*http);
 	int pipe_in[2];  // for input to CGI
 	int pipe_out[2]; // for output from CGI

@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 11:08:29 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/23 11:21:54 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,7 +20,7 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <Utilities.hpp>
-#include <ServerConfig.hpp>
+#include <ConfigFileServer.hpp>
 
 struct HttpRequest
 {
@@ -47,7 +47,7 @@ class HTTPRequest
 		HttpRequest	request;
 		void parserHeaders(const std::string &rawRequest);
 		void parserBody(const std::string &rawRequest);
-		std::string resolveFilePath(const ServerConfig &config) const;
+		std::string resolveFilePath(const ConfigFileServer &config) const;
 		size_t parseContentLength(std::string contentLengthStr);
 		void logRequest(const std::string timestamp) const;
 		const std::string& getHost() const;

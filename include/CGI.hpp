@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 10:46:11 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/23 10:46:11 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,7 +49,7 @@ class CGI
 		std::vector<char *>	_argv;
 		envCGI				_envBuffer;
 		std::vector<char *>	_env;
-		ServerConfig		_currentConfig;
+		ConfigFileServer	_currentConfig;
 		std::string			_cgiOutput;
 
 	public:
@@ -58,7 +58,7 @@ class CGI
 		CGI &operator=(CGI const &rhs);
 		~CGI(void);
 
-		CGI(ServerConfig const &currentConfig);
+		CGI(ConfigFileServer const &currentConfig);
 		void execute(HTTPRequest *http);
 		void parser(const HTTPRequest &http);
 		void setupEnvironment(const HTTPRequest &http);

@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.cpp                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/03 15:02:32 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/05 18:13:18 by migumore         ###   ########.fr       */
+/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
 	// for (size_t j = 0; j < ports.size(); ++j)
 
-	// const std::vector<ServerConfig> &servers = parser.getServers();
+	// const std::vector<ConfigFileServer> &servers = parser.getServers();
 	// 	for (size_t i = 0; i < servers.size(); i++)
 	// 	{
 	// 		std::cout << "=== Server Configuration " << i + 1 << " ===" << std::endl;

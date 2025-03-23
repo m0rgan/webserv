@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 12:02:13 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/23 17:20:41 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,14 +20,14 @@ Server::Server() : _proto(NULL)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(const ServerConfig &config) : _ports(config.getPorts()), _hosts(config.getHosts()), _proto(NULL), _currentConfig(config)
+Server::Server(const ConfigFileServer &config) : _hostPort(config.getHostPort()), _proto(NULL), _currentConfig(config)
 {
 	_proto = getprotobyname("tcp");
 	if (!_proto)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(Server const &src) : _ports(src._ports), _hosts(src._hosts), _fds(src._fds), _currentConfig(src._currentConfig)  //must finish 
+Server::Server(Server const &src) : _hostPort(src._hostPort), _fds(src._fds), _currentConfig(src._currentConfig)  //must finish 
 {
 	this->_proto = getprotobyname("tcp");
 	if (!this->_proto)
@@ -40,7 +40,7 @@ Server &Server::operator=(Server const &rhs)
 	{
 		this->_currentConfig = rhs._currentConfig;
 		this->_fds = rhs._fds;
-		this->_ports = rhs._ports;
+		this->_hostPort = rhs._hostPort;
 		this->_proto = getprotobyname("tcp");
 		if (!this->_proto)
 			throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
@@ -50,7 +50,7 @@ Server &Server::operator=(Server const &rhs)
 
 Server::~Server(void){}
 
-const ServerConfig& Server::getConfig() const
+const ConfigFileServer& Server::getConfig() const
 {
 	return (_currentConfig);
 }
@@ -80,18 +80,21 @@ int Server::sockets()
 	int serverSocket;
 	size_t i;
 
-	for (i = 0; i < _ports.size(); ++i)
+	for (i = 0; i < _hostPort.size(); ++i)
 	{
-		int protocol = getAddressProtocol(_hosts[i]);
+		const std::string &host = _hostPort[i].first;
+		int port = _hostPort[i].second;
+
+		int protocol = getAddressProtocol(host);
 		if (protocol == -1)
-			return (std::cerr << "[ERROR] getAddressProtocol fnct " << _hosts[i] << std::endl, 1);
+			return (std::cerr << "[ERROR] getAddressProtocol fnct " << host << std::endl, 1);
 		serverSocket = createSocket(protocol);
 		if (serverSocket < 0)
 			return (std::cerr << "[ERROR] createSocket fnct" << std::endl, 1);
 		if (configureSocket(serverSocket))
 			return (std::cerr << "[ERROR] configureSocket fnct" << std::endl, 1);
-		if (bindAndListen(serverSocket, _hosts[i], _ports[i]))
-			return (std::cerr << "[ERROR] bindAndListen fnct " << _hosts[i] << ":" << _ports[i] << std::endl, 1);
+		if (bindAndListen(serverSocket, host, port))
+			return (std::cerr << "[ERROR] bindAndListen fnct " << host << ":" << port << std::endl, 1);
 		addToFDList(serverSocket);
 	}
 	return (0);

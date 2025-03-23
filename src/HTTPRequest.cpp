@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/03 14:58:18 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/28 19:49:59 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -89,15 +89,15 @@ void HTTPRequest::parserBody(const std::string &rawRequest)
 	request.body = body;
 }
 
-std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
+std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 {
 	std::string matchedLocation;
 	std::string resolvedRoot = config.getRoot();
 	std::string resolvedAlias;
 	std::vector<std::string> resolvedIndexFiles = config.getIndexFiles();
-	const std::map<std::string, ServerConfigLocation> &locations = config.getLocations();
+	const std::map<std::string, ConfigFileServerLocation> &locations = config.getLocations();
 
-	for (std::map<std::string, ServerConfigLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
+	for (std::map<std::string, ConfigFileServerLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
 	{
 		if (request.uri.find(it->first) == 0 && (matchedLocation.empty() || it->first.length() > matchedLocation.length()))
 		{
@@ -135,7 +135,7 @@ std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 
 	if (request.method == "POST" || request.method == "DELETE")
 		return (filePath);
-
+	// std::cout << "HTTP FILE PATH : " << filePath << std::endl;
 	struct stat pathStat;
 	if (stat(filePath.c_str(), &pathStat) == 0 && S_ISDIR(pathStat.st_mode))
 	{
@@ -149,6 +149,13 @@ std::string HTTPRequest::resolveFilePath(const ServerConfig &config) const
 			if (file.good())
 				return (indexPath);
 			//what does nginx do when the is not index directive?
+		}
+		if (request.method == "GET")
+		{
+			if (config.getAutoIndex())
+				return (filePath + "/"); // Return the directory path for directory listing
+			else
+				return ("403");
 		}
 	}
 

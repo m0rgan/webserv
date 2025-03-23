@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 11:57:53 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/15 11:57:53 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,7 +16,7 @@
 #include <iostream>
 
 #include <SignalHandler.hpp>
-#include <ServerConfig.hpp>
+#include <ConfigFileServer.hpp>
 
 #include <Client.hpp>
 #include <EPoll.hpp>
@@ -30,12 +30,10 @@
 class Server
 {
 	private:
-		std::vector<int>							_ports;
-		std::vector<std::string>					_hosts;
 		std::vector<std::pair <std::string, int> > 	_hostPort;
 		std::vector<pollfd> 						_fds;
 		struct protoent								*_proto;
-		ServerConfig								_currentConfig;
+		ConfigFileServer							_currentConfig;
 		
 
 		int		createSocket(int family);
@@ -45,17 +43,17 @@ class Server
 		void	addToFDList(int serverSocket);
 		
 		public:
-		Server(void);
-		Server(Server const &src);
-		Server &operator=(Server const &rhs);
-		~Server(void);
-		
-		Server(const ServerConfig &config);
-		int		acceptClient(int index);
-		const ServerConfig& getConfig() const;
-		int		sockets();
-		const std::vector<pollfd> &getSockets() const;
-		void addSocketsToEpoll(EPoll &epoll);
+			Server(void);
+			Server(Server const &src);
+			Server &operator=(Server const &rhs);
+			~Server(void);
+			
+			Server(const ConfigFileServer &config);
+			int		acceptClient(int index);
+			const ConfigFileServer& getConfig() const;
+			int		sockets();
+			const std::vector<pollfd> &getSockets() const;
+			void addSocketsToEpoll(EPoll &epoll);
 };
 
 #endif

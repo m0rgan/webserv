@@ -39,8 +39,11 @@ class ServerLauncher
 
 	public:
 		ServerLauncher(void);
-		ServerLauncher(const std::string &configFile);
+		ServerLauncher(ServerLauncher const &src);
+		ServerLauncher &operator=(ServerLauncher const &rhs);
 		~ServerLauncher(void);
+
+		ServerLauncher(const std::string &configFile);
 		void initServers(const std::string &configFile);
 		void loop();
 		void stopServers();

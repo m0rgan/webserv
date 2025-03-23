@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/21 17:01:19 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/06 20:35:28 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -42,22 +42,22 @@ void ServerLauncher::initServers(const std::string &configFile)
 	ConfigFile parsedConfigFile;
 	try
 	{
-		parsedConfigFile.process(configFile);
+		parsedConfigFile.parser(configFile);
 	}
 	catch(const std::exception& e)
 	{
-		std::cerr << e.what() << '\n';
+		std::cerr << e.what() << std::endl;
 		return;
 	}
 	parsedConfigFile.printConfig();
-	std::vector<ServerConfig> configs = parsedConfigFile.getServers();
+	std::vector<ConfigFileServer> serverConfigs = parsedConfigFile.getServers();
 
-	for (size_t i = 0; i < configs.size(); ++i)
+	for (size_t i = 0; i < serverConfigs.size(); ++i)
 	{
 		try
 		{
-			std::cout << "[INFO] Launching server: " << configs[i].getServerName() << std::endl;
-			Server* server = new Server(configs[i]);
+			std::cout << "[INFO] Launching server: " << serverConfigs[i].getServerName() << std::endl;
+			Server* server = new Server(serverConfigs[i]);
 			//handle new error?
 			if (server->sockets() == 0)
 			{
@@ -175,12 +175,12 @@ void ServerLauncher::existingClient(int clientFd)
 		// if (server)
 		// {
 		//     std::cout << "[DEBUG] Server name: " << server->getConfig().getServerName() << std::endl;
-		//     std::cout << "[DEBUG] Client server name: " << client->getServerConfig().getServerName() << std::endl;
+		//     std::cout << "[DEBUG] Client server name: " << client->getConfigFileServer().getServerName() << std::endl;
 		// }
-		if (server && server->getConfig().getServerName() != client->getServerConfig().getServerName())
+		if (server && server->getConfig().getServerName() != client->getConfigFileServer().getServerName())
 		{
 			// std::cout << "[DEBUG] Changing server config for client FD: " << clientFd << std::endl;
-			client->setServerConfig(server->getConfig());
+			client->setConfigFileServer(server->getConfig());
 		}
 		client->handleRequest(http);
 		if (client->hasPendingData())
@@ -209,11 +209,11 @@ Server* ServerLauncher::serverSelector(const HTTPRequest &http)
 	// std::cout << "[DEBUG] Looking for server for host: " << host << " and port: " << port << std::endl;
 	for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
 	{
-		const ServerConfig& config = it->second->getConfig();
-		const std::vector<int>& ports = config.getPorts();
-		for (size_t i = 0; i < ports.size(); ++i)
+		const ConfigFileServer& config = it->second->getConfig();
+		const std::vector<std::pair<std::string, int> >& hostPorts = config.getHostPort();
+		for (size_t i = 0; i < hostPorts.size(); ++i)
 		{
-			if (config.getServerName() == host && ports[i] == port)
+			if (config.getServerName() == host && hostPorts[i].second == port) //hostPorts[i].first == host??
 			{
 				// std::cout << "[DEBUG] Found server for host: " << host << " and port: " << port << std::endl;
 				return (it->second);
@@ -227,13 +227,11 @@ Server* ServerLauncher::serverSelector(const HTTPRequest &http)
 void ServerLauncher::closeClient(int clientFd)
 {
 	_epoll.removeFD(clientFd);
-
 	if (_clients.find(clientFd) != _clients.end())
 	{
 		delete _clients[clientFd];
 		_clients.erase(clientFd);
 	}
-
 	close(clientFd);
 }
 

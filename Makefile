@@ -17,10 +17,10 @@ RESET		=	$(shell tput sgr0)
 CC 			=	c++
 CFLAGS		=	-Wall -Werror -Wextra -std=c++98 -I include
 MANDATORY 	=	src/main.cpp \
-				src/ServerConfig.cpp \
-				src/ServerConfigLocation.cpp \
-				src/ServerLauncher.cpp \
 				src/ConfigFile.cpp \
+				src/ConfigFileServer.cpp \
+				src/ConfigFileServerLocation.cpp \
+				src/ServerLauncher.cpp \
 				src/SignalHandler.cpp \
 				src/Server.cpp \
 				src/Client.cpp \
@@ -56,7 +56,10 @@ siege:
 	# siege -c50 -r100 http://0.0.0.0:8080
 
 # ipv6 testing:  curl --http1.1 -g -6 "http://[::1]:8080"
-
+# curl -resolve example.com:80:127.0.0.1 http://example.com/
+#curl -resolve localhost:8080:127.0.0.1 http://localhost:8080/
+#curl -v -resolve localhost:8080:127.0.0.1 http://localhost:8080/
+#curl -X POST -H "Content-Type: plain/text" -data "Body is here put something shorter or longer than body limit"
 clean:
 	@rm -rf $(OBJS)
 	@rm -rf $(OBJS_DIR)

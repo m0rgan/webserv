@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 16:55:28 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/15 17:46:22 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/23 15:37:59 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,7 +16,7 @@
 #include <iostream>
 
 #include <HTTPRequest.hpp>
-#include <ServerConfig.hpp>
+#include <ConfigFileServer.hpp>
 #include <CGI.hpp>
 #include "Utilities.hpp"
 #include <HTTPResponse.hpp>
@@ -35,16 +35,17 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <stdio.h> //errno
+#include <dirent.h>
 
 class Client
 {
 	private:
-		int				_clientSocket;
-		std::string		_requestBuffer;
-		std::string		_responseBuffer;
-		ssize_t			_bytesSent;
-		ServerConfig	_currentConfig;
-		bool			_keepAlive;
+		int					_clientSocket;
+		std::string			_requestBuffer;
+		std::string			_responseBuffer;
+		ssize_t				_bytesSent;
+		ConfigFileServer	_currentConfig;
+		bool				_keepAlive;
 
 		void	handleGET(HTTPRequest *http);
 		void	handlePOST(HTTPRequest *http);
@@ -52,27 +53,28 @@ class Client
 		void	closeClient();
 		bool	lengthData(HTTPRequest &http);
 		bool	chunkedData(HTTPRequest &http);
-		const ServerConfigLocation *matchLocation(const HTTPRequest &http) const;
+		const ConfigFileServerLocation *matchLocation(const HTTPRequest &http) const;
 		bool	serverReturn(void);
-		bool	locationReturn(const ServerConfigLocation *location);
+		bool	locationReturn(const ConfigFileServerLocation *location);
 		bool	handleReturnDirective(int statusCode, const std::string &redirectUrl);
 		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders);
 		void	prepareErrorResponse(int statusCode, const std::string &contentType, const std::string &body);
 		void	serveErrorResponse(int statusCode);
 		bool	routeToCGI(std::string requestURI);
-		
+		std::string directoryList(const std::string &directoryPath, const std::string &uri);
+
 		SessionManagement	&_sessionManager;
 		Cookies				_cookies;
 		void				handleCookies(HTTPRequest &http);
-		std::string			extractHeadersFromCGIOutput(std::string &cgiOutput);
+		std::string			extractHeadersCGIOutput(std::string &cgiOutput);
 
 	public:
 		Client(void);
-		Client(int socket, const ServerConfig &config, SessionManagement &sessionManager);
 		Client(Client const &src);
 		Client &operator=(Client const &rhs);
 		~Client(void);
 		
+		Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager);
 		HTTPRequest readRequest();
 		void handleRequest(HTTPRequest &http);
 		bool hasPendingData() const;
@@ -81,11 +83,11 @@ class Client
 		int getSocket() const;
 		bool keepAlive() const;
 		
-		bool isMethodAllowed(const ServerConfigLocation *location, const std::string &method);
+		bool isMethodAllowed(const ConfigFileServerLocation *location, const std::string &method);
 		
-		const ServerConfig& getServerConfig() const;
-		void setServerConfig(const ServerConfig &config);
-		void	resetState(void);
+		const ConfigFileServer& getConfigFileServer() const;
+		void setConfigFileServer(const ConfigFileServer &config);
+		void resetState(void);
 	};
 
 #endif

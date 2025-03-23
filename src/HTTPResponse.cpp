@@ -216,7 +216,7 @@ void HTTPResponse::logResponse(const std::string &timestamp) const
 	std::cout << _protocol << " " << _statusLine.first << " " << _statusLine.second << std::endl;
 	// for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
 	// 	std::cout << it->first << ": " << it->second << std::endl;
-	// // if (!_body.empty())
+	// if (!_body.empty())
 	// 	std::cout << std::endl << _body << std::endl;
 	std::cout << RESET;
 }

@@ -14,7 +14,7 @@
 
 Client::Client(void) : _sessionManager(*(new SessionManagement())) {} //tbd??
 
-Client::Client(int socket, const ServerConfig &config, SessionManagement &sessionManager) : _clientSocket(socket), _bytesSent(0), _currentConfig(config), _sessionManager(sessionManager) { setCloexecFlag(_clientSocket); }
+Client::Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager) : _clientSocket(socket), _bytesSent(0), _currentConfig(config), _sessionManager(sessionManager) { setCloexecFlag(_clientSocket); }
 
 Client::Client(Client const &src) : _clientSocket(src._clientSocket), _requestBuffer(src._requestBuffer), _responseBuffer(src._responseBuffer), _bytesSent(src._bytesSent), _currentConfig(src._currentConfig), _sessionManager(src._sessionManager)
 {
@@ -36,8 +36,8 @@ Client &Client::operator=(Client const &rhs) //must finish
 
 Client::~Client(){}
 
-const ServerConfig& Client::getServerConfig() const { return _currentConfig; }
-void Client::setServerConfig(const ServerConfig &config) { _currentConfig = config; }
+const ConfigFileServer& Client::getConfigFileServer() const { return _currentConfig; }
+void Client::setConfigFileServer(const ConfigFileServer &config) { _currentConfig = config; }
 
 HTTPRequest Client::readRequest()  //check return values to kill process??
 {
@@ -125,7 +125,7 @@ bool Client::lengthData(HTTPRequest &http)
 	return (false); //keep reading
 }
 
-bool Client::isMethodAllowed(const ServerConfigLocation *location, const std::string &method)
+bool Client::isMethodAllowed(const ConfigFileServerLocation *location, const std::string &method)
 {
 	if (location)
 	{
@@ -141,8 +141,13 @@ void Client::handleCookies(HTTPRequest &http)
 	if (http.request.headers.find("Cookie") != http.request.headers.end())
 		_cookies.parse(http.request.headers["Cookie"]);
 	std::string sessionID = _cookies.getCookie("SESSIONID");
-	if (!sessionID.empty() && !_sessionManager.sessionExists(sessionID)) 
+	// std::cout << " FIRST " << sessionID << std::endl;
+	if (!sessionID.empty() && !_sessionManager.sessionExists(sessionID))
+	{
 		_sessionManager.createSession(sessionID);
+		_cookies.setCookie("SESSIONID", sessionID + "; Path=/; HttpOnly");
+		// std::cout << sessionID << std::endl;
+	}
 	else if (sessionID.empty()) 
 	{
 		sessionID = _sessionManager.createSession("");
@@ -157,8 +162,8 @@ void Client::handleRequest(HTTPRequest &http)
 	http.logRequest(getCurrentTimestamp());
 
 	handleCookies(http);
-
-	const ServerConfigLocation *matchedLocation = matchLocation(http);
+	// DO WE NEED TO PARSE FOR VALID HOSTNAMES???? and for $ variables?
+	const ConfigFileServerLocation *matchedLocation = matchLocation(http);
 	if (locationReturn(matchedLocation))
 		return;
 	if (serverReturn())
@@ -177,6 +182,7 @@ void Client::handleRequest(HTTPRequest &http)
 	}
 
 	std::string filePath = http.resolveFilePath(_currentConfig);
+	// std::cout << "HANDLE ALL FILE PATH : " << filePath << std::endl;
 	if (filePath.empty())
 	{
 		serveErrorResponse(404);
@@ -190,7 +196,7 @@ void Client::handleRequest(HTTPRequest &http)
 			CGI cgi(_currentConfig);
 			cgi.execute(&http);
 			std::string cgiOutput = cgi.getOutput();
-			std::string cgiHeaders = extractHeadersFromCGIOutput(cgiOutput);
+			std::string cgiHeaders = extractHeadersCGIOutput(cgiOutput);
 			std::string setCookieHeaders = _cookies.generateSetCookieHeader();
 			if (!setCookieHeaders.empty())
 				cgiHeaders += setCookieHeaders;
@@ -222,7 +228,7 @@ void Client::resetState()
 	_bytesSent = 0;
 }
 
-std::string Client::extractHeadersFromCGIOutput(std::string &cgiOutput)
+std::string Client::extractHeadersCGIOutput(std::string &cgiOutput)
 {
 	size_t headerEnd = cgiOutput.find("\r\n\r\n");
 	if (headerEnd == std::string::npos)
@@ -244,11 +250,11 @@ bool Client::routeToCGI(std::string requestURI)
 	return (false);
 };
 
-const ServerConfigLocation* Client::matchLocation(const HTTPRequest &http) const
+const ConfigFileServerLocation* Client::matchLocation(const HTTPRequest &http) const
 {
-	const ServerConfigLocation *bestLocation = NULL;
-	const std::map<std::string, ServerConfigLocation> &locations = _currentConfig.getLocations();
-	for (std::map<std::string, ServerConfigLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
+	const ConfigFileServerLocation *bestLocation = NULL;
+	const std::map<std::string, ConfigFileServerLocation> &locations = _currentConfig.getLocations();
+	for (std::map<std::string, ConfigFileServerLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
 		if (http.request.uri.find(it->first) == 0 && (bestLocation == NULL || it->first.length() > bestLocation->getURI().length()))
 			bestLocation = &it->second;
 	return (bestLocation);
@@ -261,19 +267,18 @@ bool Client::handleReturnDirective(int statusCode, const std::string &redirectUr
 		serveErrorResponse(statusCode);
 		return (true);
 	}
-	std::string body = "Redirecting to " + redirectUrl; //can delete
+	std::string body = "Redirecting to " + redirectUrl;
 	prepareResponse(statusCode, "text/plain", body, redirectUrl, "");
 	return (true);
 }
 
-bool Client::locationReturn(const ServerConfigLocation *location)
+bool Client::locationReturn(const ConfigFileServerLocation *location)
 {
 	if (location && location->hasReturnDirective())
 	{
 		int statusCode = location->getReturnStatusCode();
 		std::string redirect = location->getReturnUrl();
 		return (handleReturnDirective(statusCode, redirect));
-		
 	}
 	return (false);
 }
@@ -349,9 +354,62 @@ bool Client::keepAlive() const
 	return (_keepAlive);
 }
 
+std::string Client::directoryList(const std::string &directoryPath, const std::string &uri)
+{
+	std::stringstream html;
+	html << "<!DOCTYPE html>";
+	html << "<html><head><title>Index of " << uri << "</title>";
+	html << "<style>";
+	html << "body { font-family: Arial, sans-serif; background-color: #f0f8ff; color: #000080; margin: 0; padding: 0; }";
+	html << "h1 { background-color: #4682b4; color: white; padding: 10px; margin: 0; }";
+	html << "ul { list-style-type: none; padding: 0; margin: 0; }";
+	html << "li { padding: 8px 10px; border-bottom: 1px solid #dcdcdc; }";
+	html << "li:nth-child(odd) { background-color: #e6f2ff; }";
+	html << "li:nth-child(even) { background-color: #ffffff; }";
+	html << "a { text-decoration: none; color: #000080; font-weight: bold; }";
+	html << "a:hover { color: #4682b4; }";
+	html << "</style>";
+	html << "</head><body>";
+	html << "<h1>Index of " << uri << "</h1><hr><ul>";
+
+	DIR *dir = opendir(directoryPath.c_str());
+	if (dir)
+	{
+		struct dirent *entry;
+		while ((entry = readdir(dir)) != NULL)
+		{
+			std::string name = entry->d_name;
+			if (name == ".")
+				continue; // Skip current directory
+			if (name == "..")
+				html << "<li><a href=\"" << uri << "../\">Parent Directory</a></li>";
+			else
+				html << "<li><a href=\"" << uri << name << (entry->d_type == DT_DIR ? "/" : "") << "\">" << name << "</a></li>";
+		}
+		closedir(dir);
+	}
+	html << "</ul><hr></body></html>";
+	return (html.str());
+}
+
 void Client::handleGET(HTTPRequest	*http)
 {
 	std::string filePath = http->resolveFilePath(_currentConfig);
+	// std::cout << "FILE PATH : " << filePath << std::endl;
+	if (filePath == "403")
+	{
+        serveErrorResponse(403);
+        return;
+    }
+
+	struct stat pathStat;
+	if (stat(filePath.c_str(), &pathStat) == 0 && S_ISDIR(pathStat.st_mode))
+	{
+		std::string directoryListing = directoryList(filePath, http->request.uri);
+		prepareResponse(200, "text/html", directoryListing, "", "");
+		return;
+	}
+
 	std::ifstream file(filePath.c_str(), std::ios::binary);
 	if (!file)
 	{

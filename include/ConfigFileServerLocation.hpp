@@ -1,48 +1,46 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ServerConfigLocation.hpp                           :+:      :+:    :+:   */
+/*   ConfigFileServerLocation.hpp                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/02/25 15:08:44 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/25 19:15:12 by gabrielfern      ###   ########.fr       */
+/*   Created: 2025/03/23 13:42:04 by gabrielfern       #+#    #+#             */
+/*   Updated: 2025/03/23 13:42:04 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef SERVERCONFIGLOCATION_HPP
-#define SERVERCONFIGLOCATION_HPP
+#ifndef CONFIGFILESERVERLOCATION_HPP
+#define CONFIGFILESERVERLOCATION_HPP
 
 #include <string>
 #include <vector>
 #include <map>
 #include <iostream>
 
-class ServerConfigLocation
+class ConfigFileServerLocation
 {
 	private:
-		std::string									_uri;
 		std::string									_root;
 		std::string									_alias;
 		std::vector<std::string>					_indexFiles;
-		bool										_autoIndex;
-		std::map<int, std::string>					_errorPages;
-		std::string									_proxyPass;
-		size_t										_maxBodySize;
 		std::vector<std::string>					_allowedMethods;
-		std::map<std::string, std::string>			_cgiHandlers;
+		std::map<int, std::string>					_errorPages;
 		std::map<std::string, std::string>			_headers;
-		std::map<std::string, ServerConfigLocation>	_nestedLocations;
+		std::string									_uri;
+		bool										_autoIndex;
+		size_t										_maxBodySize;
 		std::pair<int, std::string>					_returnDirective;
 		bool										_hasReturnDirective;
+		std::map<std::string, ConfigFileServerLocation>	_nestedLocations;
 
 	public:
-		ServerConfigLocation();
-		ServerConfigLocation(const std::string &uri);
-		ServerConfigLocation(const ServerConfigLocation &src);
-		ServerConfigLocation &operator=(const ServerConfigLocation &rhs);
-		~ServerConfigLocation();
-
+		ConfigFileServerLocation();
+		ConfigFileServerLocation(const ConfigFileServerLocation &src);
+		ConfigFileServerLocation &operator=(const ConfigFileServerLocation &rhs);
+		~ConfigFileServerLocation();
+		
+		ConfigFileServerLocation(const std::string &uri);
 		void setURI(const std::string &uri);
 		const std::string &getURI() const;
 		void setRoot(const std::string &root);
@@ -53,14 +51,10 @@ class ServerConfigLocation
 		bool getAutoIndex() const;
 		void addAllowedMethod(const std::string &method);
 		const std::vector<std::string> &getAllowedMethods() const;
-		void addCgiHandler(const std::string &extension, const std::string &handler);
-		const std::map<std::string, std::string> &getCgiHandlers() const;
 		void addErrorPage(int errorCode, const std::string &pagePath);
 		const std::map<int, std::string> &getErrorPages() const;
 		void addHeader(const std::string &key, const std::string &value);
 		const std::map<std::string, std::string> &getHeaders() const;
-		void setProxyPass(const std::string &proxy);
-		const std::string &getProxyPass() const;
 		void addReturnDirective(int statusCode, const std::string &url);
 		bool hasReturnDirective() const;
 		int getReturnStatusCode() const;
@@ -68,8 +62,8 @@ class ServerConfigLocation
 		const std::pair<int, std::string> &getReturnDirectives() const;
 		void setMaxBodySize(size_t size);
 		size_t getMaxBodySize() const;
-		void addNestedLocation(const std::string &uri, const ServerConfigLocation &location);
-		const std::map<std::string, ServerConfigLocation> &getNestedLocations() const;
+		void addNestedLocation(const std::string &uri, const ConfigFileServerLocation &location);
+		const std::map<std::string, ConfigFileServerLocation> &getNestedLocations() const;
 		void setAlias(const std::string &alias);
 		const std::string &getAlias() const;
 
