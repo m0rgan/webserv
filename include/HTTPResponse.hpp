@@ -28,22 +28,17 @@ class HTTPResponse
 		std::map<std::string, std::string>		_headers;
 		std::string								_body;
 		static const std::map<int, std::string>	_statusMap;
-		static const std::string				_endLine;
 
 	public:
 		HTTPResponse(void);
 		HTTPResponse(HTTPResponse const &src);
 		HTTPResponse &operator=(HTTPResponse const &rhs);
 		~HTTPResponse(void);
-		HTTPResponse(const std::string &protocol);
+
 		HTTPResponse &setStatus(int code);
-		HTTPResponse &setStatus(int code, const std::string &reasonPhrase);
 		HTTPResponse &setHeader(const std::string &key, const std::string &value);
 		HTTPResponse &setBody(const std::string &data);
 		HTTPResponse &setDate();
-		HTTPResponse &setServer();
-		HTTPResponse &setConnection();
-		HTTPResponse &setDefaults();
 		std::string toString() const;
 		static std::map<int, std::string> initStatusMap();
 		static std::string convertTime(time_t time);

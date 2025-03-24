@@ -135,7 +135,7 @@ std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 
 	if (request.method == "POST" || request.method == "DELETE")
 		return (filePath);
-	// std::cout << "HTTP FILE PATH : " << filePath << std::endl;
+
 	struct stat pathStat;
 	if (stat(filePath.c_str(), &pathStat) == 0 && S_ISDIR(pathStat.st_mode))
 	{
@@ -153,7 +153,7 @@ std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 		if (request.method == "GET")
 		{
 			if (config.getAutoIndex())
-				return (filePath + "/"); // Return the directory path for directory listing
+				return (filePath + "/");
 			else
 				return ("403");
 		}

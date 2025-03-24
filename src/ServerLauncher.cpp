@@ -46,7 +46,7 @@ void ServerLauncher::initServers(const std::string &configFile)
 	}
 	catch(const std::exception& e)
 	{
-		std::cerr << e.what() << std::endl;
+		std::cerr << e.what() << std::endl; //is this neccesary since there is one in main already?
 		return;
 	}
 	parsedConfigFile.printConfig();
@@ -58,22 +58,12 @@ void ServerLauncher::initServers(const std::string &configFile)
 		{
 			std::cout << "[INFO] Launching server: " << serverConfigs[i].getServerName() << std::endl;
 			Server* server = new Server(serverConfigs[i]);
-			//handle new error?
 			if (server->sockets() == 0)
 			{
 				server->addSocketsToEpoll(_epoll);
 				const std::vector<pollfd> &serverSockets = server->getSockets();
 				for (size_t j = 0; j < serverSockets.size(); ++j)
-				{
-					int serverFd = serverSockets[j].fd;
-					if (_servers.find(serverFd) != _servers.end())
-					{
-						std::cerr << "[ERROR] Failed to bind and listen on " << serverFd << std::endl;
-						delete server;
-						return;
-					}
-					_servers[serverFd] = server;
-				}
+					_servers[serverSockets[j].fd] = server;
 			}
 			else
 				delete server;

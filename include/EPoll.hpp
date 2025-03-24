@@ -14,6 +14,7 @@
 #define EPOLL_MANAGER_HPP
 
 #include <sys/epoll.h>
+#include <fcntl.h>
 #include <vector>
 #include <map>
 #include <unistd.h>

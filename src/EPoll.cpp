@@ -14,9 +14,11 @@
 
 EPoll::EPoll() : _events(MAX_EVENTS)
 {
-	_epollFd = epoll_create1(0);
+	_epollFd = epoll_create(MAX_EVENTS);
 	if (_epollFd == -1)
 		throw std::runtime_error("Failed to create epoll instance");
+	if (fcntl(_epollFd, F_SETFD, FD_CLOEXEC) == -1)
+		throw std::runtime_error("Failed to set FD_CLOEXEC on epoll instance");
 }
 
 EPoll::~EPoll()

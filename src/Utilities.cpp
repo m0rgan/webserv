@@ -149,6 +149,6 @@ unsigned long stringTUL(const std::string &str)
 
 void setCloexecFlag(int fd)
 {
-	if (fcntl(fd, 2, FD_CLOEXEC) == -1)
+	if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1)
 		throw std::runtime_error("Error: Failed to set CLOEXEC");
 }

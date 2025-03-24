@@ -182,7 +182,6 @@ void Client::handleRequest(HTTPRequest &http)
 	}
 
 	std::string filePath = http.resolveFilePath(_currentConfig);
-	// std::cout << "HANDLE ALL FILE PATH : " << filePath << std::endl;
 	if (filePath.empty())
 	{
 		serveErrorResponse(404);
@@ -206,7 +205,6 @@ void Client::handleRequest(HTTPRequest &http)
 	}
 	catch (const std::exception &e)
 	{
-		//std::cerr << "CGI error " << e.what() << std::endl;
 		serveErrorResponse(500);
 		return;
 	}
@@ -445,7 +443,7 @@ void Client::handlePOST(HTTPRequest *http)
 		size_t start = http->request.body.find(fullBoundary);
 		if (start == std::string::npos)
 		{
-			prepareErrorResponse(400, "text/plain", "400 Bad Request: Starting boundary not found");
+			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Starting boundary not found");
 			return;
 		}
 		start += fullBoundary.length() + 2;
@@ -457,14 +455,14 @@ void Client::handlePOST(HTTPRequest *http)
 			end = http->request.body.find(closingBoundary, start);
 		if (end == std::string::npos)
 		{
-			prepareErrorResponse(400, "text/plain", "400 Bad Request: Ending boundary not found");
+			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Ending boundary not found");
 			return;
 		}
 		std::string part = http->request.body.substr(start, end - start);
 		size_t headerEnd = part.find("\r\n\r\n");
 		if (headerEnd == std::string::npos)
 		{
-			prepareErrorResponse(400, "text/plain", "400 Bad Request: Could not find headers in part");
+			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Could not find headers in part");
 			return;
 		}
 		headerEnd += 4;
@@ -473,14 +471,14 @@ void Client::handlePOST(HTTPRequest *http)
 		size_t filenamePos = part.find("filename=\"");
 		if (filenamePos == std::string::npos)
 		{
-			prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename not found in Content-Disposition header");
+			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename not found in Content-Disposition header");
 			return;
 		}
 		filenamePos += 10;
 		size_t filenameEnd = part.find("\"", filenamePos);
 		if (filenameEnd == std::string::npos)
 		{
-			prepareErrorResponse(400, "text/plain", "400 Bad Request: Invalid filename in Content-Disposition header");
+			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Invalid filename in Content-Disposition header");
 			return;
 		}
 		std::string filename = part.substr(filenamePos, filenameEnd - filenamePos);
@@ -489,7 +487,7 @@ void Client::handlePOST(HTTPRequest *http)
 		std::ofstream file(filePath.c_str(), std::ios::binary);
 		if (!file)
 		{
-			serveErrorResponse(500);
+			serveErrorResponse(500); //SERVER Error or BAD REQUEST?
 			return;
 		}
 		file << fileContent;
@@ -503,7 +501,7 @@ void Client::handlePOST(HTTPRequest *http)
 		filename.erase(std::remove(filename.begin(), filename.end(), '\''), filename.end());
 		if (filename.empty())
 		{
-			prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename header missing");
+			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename header missing");
 			return;
 		}
 		std::string filePath = root + "/" + filename;
@@ -528,7 +526,7 @@ void Client::handleDELETE(HTTPRequest *http)
 	filename.erase(std::remove(filename.begin(), filename.end(), '\''), filename.end());
 	if (filename.empty())
 	{
-		prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename header missing");
+		serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename header missing");
 		return;
 	}
 	std::string filePath = root + "/" + filename;

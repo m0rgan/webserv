@@ -25,6 +25,7 @@
 #include <string>
 #include <map>
 #include <signal.h>
+#include <sys/socket.h>
 
 struct envCGI
 {
@@ -43,14 +44,12 @@ struct envCGI
 class CGI
 {
 	private:
-		std::string			_fullPath;
-		std::string			_requestBody;
-		std::string			_cgiProgram;
-		std::vector<char *>	_argv;
-		envCGI				_envBuffer;
-		std::vector<char *>	_env;
-		ConfigFileServer	_currentConfig;
-		std::string			_cgiOutput;
+		std::string					_fullPath;
+		std::vector<char *>			_argv;
+		std::vector<char *>			_env;
+		envCGI						_envBuffer;
+		ConfigFileServer			_currentConfig;
+		std::string					_cgiOutput;
 
 	public:
 		CGI(void);
@@ -60,7 +59,7 @@ class CGI
 
 		CGI(ConfigFileServer const &currentConfig);
 		void execute(HTTPRequest *http);
-		void parser(const HTTPRequest &http);
+		void setup(const HTTPRequest &http);
 		void setupEnvironment(const HTTPRequest &http);
 		std::string const getOutput(void);
 };

@@ -12,107 +12,115 @@
 
 #include "HTTPResponse.hpp"
 
-const std::string HTTPResponse::_endLine = "\r\n";
+HTTPResponse::HTTPResponse()
+{
+	_protocol = "HTTP/1.1";
+	if (_statusLine.first.empty())
+		setStatus(200);
+	if (_headers.find("Date") == _headers.end())
+		setDate();
+	if (_headers.find("Server") == _headers.end())
+		setHeader("Server", "webserv/1.0");
+	if (_headers.find("Content-Length") == _headers.end())
+		setHeader("Content-Length", "0");
+}
+
+HTTPResponse::HTTPResponse(HTTPResponse const &src) { *this = src; }
+
+HTTPResponse &HTTPResponse::operator=(HTTPResponse const &rhs)
+{
+	if (this != &rhs)
+	{
+		_protocol = rhs._protocol;
+		_statusLine = rhs._statusLine;
+		_headers = rhs._headers;
+		_body = rhs._body;
+	}
+	return (*this);
+}
+
+HTTPResponse::~HTTPResponse() {}
 
 const std::map<int, std::string> HTTPResponse::_statusMap = HTTPResponse::initStatusMap();
 
 std::map<int, std::string> HTTPResponse::initStatusMap()
 {
-	std::map<int, std::string> m;
-	m[100] = "Continue";
-	m[101] = "Switching Protocols";
-	m[102] = "Processing";
-	m[103] = "Early Hints";
-	m[200] = "OK";
-	m[201] = "Created";
-	m[202] = "Accepted";
-	m[203] = "Non-Authoritative Information";
-	m[204] = "No Content";
-	m[205] = "Reset Content";
-	m[206] = "Partial Content";
-	m[207] = "Multi-Status";
-	m[208] = "Already Reported";
-	m[226] = "IM Used";
-	m[300] = "Multiple Choices";
-	m[301] = "Moved Permanently";
-	m[302] = "Found";
-	m[303] = "See Other";
-	m[304] = "Not Modified";
-	m[305] = "Use Proxy";
-	m[306] = "Switch Proxy";
-	m[307] = "Temporary Redirect";
-	m[308] = "Permanent Redirect";
-	m[400] = "Bad Request";
-	m[401] = "Unauthorized";
-	m[402] = "Payment Required";
-	m[403] = "Forbidden";
-	m[404] = "Not Found";
-	m[405] = "Method Not Allowed";
-	m[406] = "Not Acceptable";
-	m[407] = "Proxy Authentication Required";
-	m[408] = "Request Timeout";
-	m[409] = "Conflict";
-	m[410] = "Gone";
-	m[411] = "Length Required";
-	m[412] = "Precondition Failed";
-	m[413] = "Payload Too Large";
-	m[414] = "URI Too Long";
-	m[415] = "Unsupported Media Type";
-	m[416] = "Range Not Satisfiable";
-	m[417] = "Expectation Failed";
-	m[418] = "I'm A Teapot";
-	m[421] = "Misdirected Request";
-	m[422] = "Unprocessable Entity";
-	m[423] = "Locked";
-	m[424] = "Failed Dependency";
-	m[425] = "Too Early";
-	m[426] = "Upgrade Required";
-	m[428] = "Precondition Required";
-	m[429] = "Too Many Requests";
-	m[431] = "Request Header Fields Too Large";
-	m[451] = "Unavailable For Legal Reasons";
-	m[500] = "Internal Server Error";
-	m[501] = "Not Implemented";
-	m[502] = "Bad Gateway";
-	m[503] = "Service Unavailable";
-	m[504] = "Gateway Timeout";
-	m[505] = "HTTP Version Not Supported";
-	m[506] = "Variant Also Negotiates";
-	m[507] = "Insufficient Storage";
-	m[508] = "Loop Detected";
-	m[510] = "Not Extended";
-	m[511] = "Network Authentication Required";
-	return (m);
+	std::map<int, std::string> status;
+	status[100] = "Continue";
+	status[101] = "Switching Protocols";
+	status[102] = "Processing";
+	status[103] = "Early Hints";
+	status[200] = "OK";
+	status[201] = "Created";
+	status[202] = "Accepted";
+	status[203] = "Non-Authoritative Information";
+	status[204] = "No Content";
+	status[205] = "Reset Content";
+	status[206] = "Partial Content";
+	status[207] = "Multi-Status";
+	status[208] = "Already Reported";
+	status[226] = "IM Used";
+	status[300] = "Multiple Choices";
+	status[301] = "Moved Permanently";
+	status[302] = "Found";
+	status[303] = "See Other";
+	status[304] = "Not Modified";
+	status[305] = "Use Proxy";
+	status[306] = "Switch Proxy";
+	status[307] = "Temporary Redirect";
+	status[308] = "Permanent Redirect";
+	status[400] = "Bad Request";
+	status[401] = "Unauthorized";
+	status[402] = "Payment Required";
+	status[403] = "Forbidden";
+	status[404] = "Not Found";
+	status[405] = "Method Not Allowed";
+	status[406] = "Not Acceptable";
+	status[407] = "Proxy Authentication Required";
+	status[408] = "Request Timeout";
+	status[409] = "Conflict";
+	status[410] = "Gone";
+	status[411] = "Length Required";
+	status[412] = "Precondition Failed";
+	status[413] = "Payload Too Large";
+	status[414] = "URI Too Long";
+	status[415] = "Unsupported Media Type";
+	status[416] = "Range Not Satisfiable";
+	status[417] = "Expectation Failed";
+	status[418] = "I'm A Teapot";
+	status[421] = "Misdirected Request";
+	status[422] = "Unprocessable Entity";
+	status[423] = "Locked";
+	status[424] = "Failed Dependency";
+	status[425] = "Too Early";
+	status[426] = "Upgrade Required";
+	status[428] = "Precondition Required";
+	status[429] = "Too Many Requests";
+	status[431] = "Request Header Fields Too Large";
+	status[451] = "Unavailable For Legal Reasons";
+	status[500] = "Internal Server Error";
+	status[501] = "Not Implemented";
+	status[502] = "Bad Gateway";
+	status[503] = "Service Unavailable";
+	status[504] = "Gateway Timeout";
+	status[505] = "HTTP Version Not Supported";
+	status[506] = "Variant Also Negotiates";
+	status[507] = "Insufficient Storage";
+	status[508] = "Loop Detected";
+	status[510] = "Not Extended";
+	status[511] = "Network Authentication Required";
+	return (status);
 }
-
-HTTPResponse::HTTPResponse()
-{
-	_protocol = "HTTP/1.1";
-	setDefaults();
-}
-
-HTTPResponse::HTTPResponse(const std::string &protocol)
-{
-	_protocol = protocol;
-	setDefaults();
-}
-
-HTTPResponse::~HTTPResponse(){}
 
 HTTPResponse &HTTPResponse::setStatus(int code)
 {
 	std::map<int, std::string>::const_iterator it = _statusMap.find(code);
 	if (it == _statusMap.end())
 		it = _statusMap.find(500); //not found error handle static?
-	return (setStatus(it->first, it->second));
-}
-
-HTTPResponse &HTTPResponse::setStatus(int code, const std::string &reasonPhrase)
-{
 	std::stringstream ss;
 	ss << code;
 	_statusLine.first = ss.str();
-	_statusLine.second = reasonPhrase;
+	_statusLine.second = it->second;
 	return (*this);
 }
 
@@ -133,10 +141,8 @@ HTTPResponse &HTTPResponse::addRawHeaders(const std::string &rawHeaders)
 		{
 			std::string key = line.substr(0, colonPos);
 			std::string value = line.substr(colonPos + 1);
-			key.erase(0, key.find_first_not_of(" \t"));
-			key.erase(key.find_last_not_of(" \t") + 1);
-			value.erase(0, value.find_first_not_of(" \t"));
-			value.erase(value.find_last_not_of(" \t") + 1);
+			trimWhitespaces(key);
+			trimWhitespaces(value);
 			_headers[key] = value;
 		}
 	}
@@ -156,27 +162,6 @@ HTTPResponse &HTTPResponse::setDate()
 {
 	time_t now = time(0);
 	setHeader("Date", convertTime(now));
-	return (*this);
-}
-
-HTTPResponse &HTTPResponse::setServer()
-{
-	setHeader("Server", "webserv/1.0"); //must set or can leave static?
-	return (*this);
-}
-
-HTTPResponse &HTTPResponse::setConnection()
-{
-	setHeader("Connection", "Close");
-	return (*this);
-}
-
-HTTPResponse &HTTPResponse::setDefaults()
-{
-	if (_statusLine.first.empty()) setStatus(200);
-	if (_headers.find("Date") == _headers.end()) setDate();
-	if (_headers.find("Server") == _headers.end()) setServer();
-	if (_headers.find("Content-Length") == _headers.end()) setHeader("Content-Length", "0");
 	return (*this);
 }
 
@@ -202,10 +187,10 @@ std::string HTTPResponse::toString() const
 {
 	std::ostringstream response;
 
-	response << _protocol << " " << _statusLine.first << " " << _statusLine.second << _endLine;
+	response << _protocol << " " << _statusLine.first << " " << _statusLine.second << "\r\n";
 	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
-		response << it->first << ": " << it->second << _endLine;
-	response << _endLine;
+		response << it->first << ": " << it->second << "\r\n";
+	response << "\r\n";
 	response << _body;
 	return (response.str());
 }
