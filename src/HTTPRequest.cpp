@@ -208,6 +208,81 @@ size_t HTTPRequest::parseContentLength(std::string contentLengthStr)
 	return (value);
 }
 
+bool HTTPRequest::isMethodAllowed(const ConfigFileServerLocation *location) const
+{
+	if (location)
+	{
+		const std::vector<std::string> &methods = location->getAllowedMethods();
+		if (!methods.empty() && std::find(methods.begin(), methods.end(), request.method) == methods.end())
+			return (false);
+	}
+	return (true);
+}
+
+bool HTTPRequest::handleReturnDirective(int statusCode, const std::string &redirectUrl, Client &client) const
+{
+	if (ErrorPage::isErrorStatusCode(statusCode))
+	{
+		client.prepareErrorResponse(statusCode);
+		return (true);
+	}
+	std::string body = "Redirecting to " + redirectUrl;
+	client.prepareResponse(statusCode, "text/plain", body, redirectUrl, "");
+	return (true);
+}
+
+bool HTTPRequest::serverReturn(const ConfigFileServer &config, Client &client) const
+{
+	if (config.hasReturnDirective())
+	{
+		int statusCode = config.getReturnStatusCode();
+		std::string redirect = config.getReturnUrl();
+		return handleReturnDirective(statusCode, redirect, client);
+	}
+	return (false);
+}
+
+bool HTTPRequest::locationReturn(const ConfigFileServerLocation *location, Client &client) const
+{
+	if (location && location->hasReturnDirective())
+	{
+		int statusCode = location->getReturnStatusCode();
+		std::string redirect = location->getReturnUrl();
+		return handleReturnDirective(statusCode, redirect, client);
+	}
+	return (false);
+}
+
+const ConfigFileServerLocation* HTTPRequest::matchLocation(const ConfigFileServer &config) const
+{
+	const ConfigFileServerLocation *bestLocation = NULL;
+	const std::map<std::string, ConfigFileServerLocation> &locations = config.getLocations();
+	for (std::map<std::string, ConfigFileServerLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
+	{
+		if (request.uri.find(it->first) == 0 && (bestLocation == NULL || it->first.length() > bestLocation->getURI().length()))
+			bestLocation = &it->second;
+	}
+	return (bestLocation);
+}
+
+bool HTTPRequest::validateRequest(const ConfigFileServer &config, Client &client)
+{
+	const ConfigFileServerLocation *matchedLocation = matchLocation(config);
+
+	if (locationReturn(matchedLocation, client))
+		return (false);
+	if (serverReturn(config, client))
+		return (false);
+	if (matchedLocation && !isMethodAllowed(matchedLocation))
+		return (client.prepareErrorResponse(405), (false));
+	if (request.contentLength > config.getMaxBodySize())
+		return (client.prepareErrorResponse(413), (false));
+	resolvedFilePath = resolveFilePath(config);
+	if (resolvedFilePath.empty())
+		return (client.prepareErrorResponse(404), (false));
+	return (true);
+}
+
 void HTTPRequest::logRequest(const std::string timestamp) const
 {
 	std::string color;

@@ -25,7 +25,19 @@ void handleSIGINT(int sig)
 	kill(0, SIGTERM);
 }
 
-ServerLauncher::ServerLauncher(void) {}; //fix
+ServerLauncher::ServerLauncher(void) : _epoll(), _sessionManager() {};
+
+ServerLauncher::ServerLauncher(ServerLauncher const &src)
+{
+	(void)src;
+    throw std::runtime_error("Copy constructor is not allowed for ServerLauncher");
+}
+
+ServerLauncher &ServerLauncher::operator=(ServerLauncher const &rhs)
+{
+	(void)rhs;
+    throw std::runtime_error("Assignment operator is not allowed for ServerLauncher");
+}
 
 ServerLauncher::ServerLauncher(const std::string &configFile)
 {
@@ -230,4 +242,7 @@ void ServerLauncher::stopServers()
 	for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
 		delete it->second;
 	_servers.clear();
+	for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+		delete it->second;
+	_clients.clear();
 }

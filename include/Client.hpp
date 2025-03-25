@@ -52,20 +52,12 @@ class Client
 		void	closeClient();
 		bool	lengthData(HTTPRequest &http);
 		bool	chunkedData(HTTPRequest &http);
-		const ConfigFileServerLocation *matchLocation(const HTTPRequest &http) const;
-		bool	serverReturn(void);
-		bool	locationReturn(const ConfigFileServerLocation *location);
-		bool	handleReturnDirective(int statusCode, const std::string &redirectUrl);
-		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders);
-		void	prepareErrorResponse(int statusCode, const std::string &contentType, const std::string &body);
-		void	serveErrorResponse(int statusCode);
 		bool	routeToCGI(std::string requestURI);
-		bool	validateRequest(HTTPRequest &http);
-
+		
 		SessionManagement	&_sessionManager;
 		Cookies				_cookies;
 		void				handleCookies(HTTPRequest &http);
-
+		
 	public:
 		Client(void);
 		Client(Client const &src);
@@ -81,11 +73,12 @@ class Client
 		int getSocket() const;
 		bool keepAlive() const;
 		
-		bool isMethodAllowed(const ConfigFileServerLocation *location, const std::string &method);
-		
 		const ConfigFileServer& getConfigFileServer() const;
 		void setConfigFileServer(const ConfigFileServer &config);
 		void resetState(void);
+		
+		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders);
+		void	prepareErrorResponse(int statusCode);
 	};
 
 #endif

@@ -37,10 +37,10 @@ class ServerLauncher
 		void closeClient(int clientFd);
 		Server* serverSelector(const HTTPRequest &http);
 
-	public:
-		ServerLauncher(void);
 		ServerLauncher(ServerLauncher const &src);
 		ServerLauncher &operator=(ServerLauncher const &rhs);
+	public:
+		ServerLauncher(void);
 		~ServerLauncher(void);
 
 		ServerLauncher(const std::string &configFile);

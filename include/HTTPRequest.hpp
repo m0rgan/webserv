@@ -6,7 +6,7 @@
 /*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 11:08:29 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/25 19:49:23 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,9 @@
 #include <sys/stat.h>
 #include <Utilities.hpp>
 #include <ConfigFileServer.hpp>
+#include "ErrorPage.hpp"
+
+class Client;
 
 struct HttpRequest
 {
@@ -53,17 +56,15 @@ class HTTPRequest
 		void logRequest(const std::string timestamp) const;
 		const std::string& getHost() const;
 		int getPort() const;
+
+		bool isMethodAllowed(const ConfigFileServerLocation *location) const;
+		bool handleReturnDirective(int statusCode, const std::string &redirectUrl, Client &client) const;
+		bool serverReturn(const ConfigFileServer &config, Client &client) const;
+		bool locationReturn(const ConfigFileServerLocation *location, Client &client) const;
+		const ConfigFileServerLocation* matchLocation(const ConfigFileServer &config) const;
+		bool validateRequest(const ConfigFileServer &config, Client &client);
 };
 
-//include httprequest struct in class
-//include response status code? to save last code of request?
-//make responses like a template in this class instead of inside member function in Client?
-// HTTP response status codes
+#include "Client.hpp"
 
-// HTTP response status codes indicate whether a specific HTTP request has been successfully completed. Responses are grouped in five classes:
-// Informational responses (100 – 199)
-// Successful responses (200 – 299)
-// Redirection messages (300 – 399)
-// Client error responses (400 – 499)
-// Server error responses (500 – 599)
 #endif

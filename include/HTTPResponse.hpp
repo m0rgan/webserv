@@ -46,7 +46,7 @@ class HTTPResponse
 		HTTPResponse &addRawHeaders(const std::string &rawHeaders);
 		void logResponse(const std::string &timestamp) const;
 
-		void setResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl = "", const std::string &additionalHeaders = "");
+		std::string setResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl = "", const std::string &additionalHeaders = "");
 		static std::string directoryList(const std::string &directoryPath, const std::string &uri);
 };
 

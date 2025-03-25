@@ -195,7 +195,7 @@ std::string HTTPResponse::toString() const
 	return (response.str());
 }
 
-void HTTPResponse::setResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders)
+std::string HTTPResponse::setResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders)
 {
 	std::stringstream ss;
 	ss << body.size();
@@ -209,6 +209,8 @@ void HTTPResponse::setResponse(int statusCode, const std::string &contentType, c
 
 	if (!additionalHeaders.empty())
 		addRawHeaders(additionalHeaders);
+	logResponse(getCurrentTimestamp());
+	return (toString());
 }
 
 std::string HTTPResponse::directoryList(const std::string &directoryPath, const std::string &uri)
