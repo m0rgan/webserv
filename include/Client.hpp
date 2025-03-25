@@ -35,7 +35,6 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <stdio.h> //errno
-#include <dirent.h>
 
 class Client
 {
@@ -61,12 +60,11 @@ class Client
 		void	prepareErrorResponse(int statusCode, const std::string &contentType, const std::string &body);
 		void	serveErrorResponse(int statusCode);
 		bool	routeToCGI(std::string requestURI);
-		std::string directoryList(const std::string &directoryPath, const std::string &uri);
+		bool	validateRequest(HTTPRequest &http);
 
 		SessionManagement	&_sessionManager;
 		Cookies				_cookies;
 		void				handleCookies(HTTPRequest &http);
-		std::string			extractHeadersCGIOutput(std::string &cgiOutput);
 
 	public:
 		Client(void);

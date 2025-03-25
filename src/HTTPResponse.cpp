@@ -195,6 +195,60 @@ std::string HTTPResponse::toString() const
 	return (response.str());
 }
 
+void HTTPResponse::setResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders)
+{
+	std::stringstream ss;
+	ss << body.size();
+	setStatus(statusCode)
+		.setHeader("Content-Type", contentType)
+		.setHeader("Content-Length", ss.str())
+		.setBody(body);
+
+	if (!redirectUrl.empty())
+		setHeader("Location", redirectUrl).setHeader("Connection", "close");
+
+	if (!additionalHeaders.empty())
+		addRawHeaders(additionalHeaders);
+}
+
+std::string HTTPResponse::directoryList(const std::string &directoryPath, const std::string &uri)
+{
+	std::stringstream html;
+	html << "<!DOCTYPE html>";
+	html << "<html><head><title>Index of " << uri << "</title>";
+	html << "<style>";
+	html << "body { font-family: Arial, sans-serif; background-color: #f0f8ff; color: #000080; margin: 0; padding: 0; }";
+	html << "h1 { background-color: #4682b4; color: white; padding: 10px; margin: 0; }";
+	html << "ul { list-style-type: none; padding: 0; margin: 0; }";
+	html << "li { padding: 8px 10px; border-bottom: 1px solid #dcdcdc; }";
+	html << "li:nth-child(odd) { background-color: #e6f2ff; }";
+	html << "li:nth-child(even) { background-color: #ffffff; }";
+	html << "a { text-decoration: none; color: #000080; font-weight: bold; }";
+	html << "a:hover { color: #4682b4; }";
+	html << "</style>";
+	html << "</head><body>";
+	html << "<h1>Index of " << uri << "</h1><hr><ul>";
+
+	DIR *dir = opendir(directoryPath.c_str());
+	if (dir)
+	{
+		struct dirent *entry;
+		while ((entry = readdir(dir)) != NULL)
+		{
+			std::string name = entry->d_name;
+			if (name == ".")
+				continue; // Skip current directory
+			if (name == "..")
+				html << "<li><a href=\"" << uri << "../\">Parent Directory</a></li>";
+			else
+				html << "<li><a href=\"" << uri << name << (entry->d_type == DT_DIR ? "/" : "") << "\">" << name << "</a></li>";
+		}
+		closedir(dir);
+	}
+	html << "</ul><hr></body></html>";
+	return (html.str());
+}
+
 void HTTPResponse::logResponse(const std::string &timestamp) const
 {
 	std::cout << BLUE << "[" << timestamp << "] ";

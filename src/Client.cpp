@@ -163,48 +163,26 @@ void Client::handleRequest(HTTPRequest &http)
 
 	handleCookies(http);
 	// DO WE NEED TO PARSE FOR VALID HOSTNAMES???? and for $ variables?
-	const ConfigFileServerLocation *matchedLocation = matchLocation(http);
-	if (locationReturn(matchedLocation))
+	if (!validateRequest(http))
 		return;
-	if (serverReturn())
-		return;
-
-	if (matchedLocation && !isMethodAllowed(matchedLocation, http.request.method))
-	{
-		serveErrorResponse(405);
-		return;
-	}
-
-	if (http.request.contentLength > _currentConfig.getMaxBodySize())
-	{
-		serveErrorResponse(413);
-		return;
-	}
-
-	std::string filePath = http.resolveFilePath(_currentConfig);
-	if (filePath.empty())
-	{
-		serveErrorResponse(404);
-		return;
-	}
 	
 	try 
 	{
-		if (routeToCGI(filePath))
+		if (routeToCGI(http.resolvedFilePath))
 		{
 			CGI cgi(_currentConfig);
 			cgi.execute(&http);
-			std::string cgiOutput = cgi.getOutput();
-			std::string cgiHeaders = extractHeadersCGIOutput(cgiOutput);
+			std::string cgiHeaders = cgi.getHeaders();
 			std::string setCookieHeaders = _cookies.generateSetCookieHeader();
 			if (!setCookieHeaders.empty())
 				cgiHeaders += setCookieHeaders;
-			prepareResponse(200, "text/html", cgiOutput, "", cgiHeaders);
+			prepareResponse(200, "text/html", cgi.getOutput(), "", cgiHeaders);
 			return;
 		}
 	}
 	catch (const std::exception &e)
 	{
+		std::cerr << e.what() << std::endl;
 		serveErrorResponse(500);
 		return;
 	}
@@ -220,21 +198,31 @@ void Client::handleRequest(HTTPRequest &http)
 	resetState();
 }
 
+bool Client::validateRequest(HTTPRequest &http)
+{
+	const ConfigFileServerLocation *matchedLocation = matchLocation(http);
+
+	if (locationReturn(matchedLocation))
+		return (false);
+	if (serverReturn())
+		return (false);
+
+	if (matchedLocation && !isMethodAllowed(matchedLocation, http.request.method))
+		return (serveErrorResponse(405), false);
+
+	if (http.request.contentLength > _currentConfig.getMaxBodySize())
+		return (serveErrorResponse(413), false);
+
+	http.resolvedFilePath = http.resolveFilePath(_currentConfig);
+	if (http.resolvedFilePath.empty())
+		return (serveErrorResponse(404), false);
+	return (true);
+}
+
 void Client::resetState()
 {
 	_requestBuffer.clear();
 	_bytesSent = 0;
-}
-
-std::string Client::extractHeadersCGIOutput(std::string &cgiOutput)
-{
-	size_t headerEnd = cgiOutput.find("\r\n\r\n");
-	if (headerEnd == std::string::npos)
-		return ("");
-
-	std::string headers = cgiOutput.substr(0, headerEnd + 2);
-	cgiOutput = cgiOutput.substr(headerEnd + 4);
-	return (headers);
 }
 
 bool Client::routeToCGI(std::string requestURI)
@@ -352,58 +340,20 @@ bool Client::keepAlive() const
 	return (_keepAlive);
 }
 
-std::string Client::directoryList(const std::string &directoryPath, const std::string &uri)
-{
-	std::stringstream html;
-	html << "<!DOCTYPE html>";
-	html << "<html><head><title>Index of " << uri << "</title>";
-	html << "<style>";
-	html << "body { font-family: Arial, sans-serif; background-color: #f0f8ff; color: #000080; margin: 0; padding: 0; }";
-	html << "h1 { background-color: #4682b4; color: white; padding: 10px; margin: 0; }";
-	html << "ul { list-style-type: none; padding: 0; margin: 0; }";
-	html << "li { padding: 8px 10px; border-bottom: 1px solid #dcdcdc; }";
-	html << "li:nth-child(odd) { background-color: #e6f2ff; }";
-	html << "li:nth-child(even) { background-color: #ffffff; }";
-	html << "a { text-decoration: none; color: #000080; font-weight: bold; }";
-	html << "a:hover { color: #4682b4; }";
-	html << "</style>";
-	html << "</head><body>";
-	html << "<h1>Index of " << uri << "</h1><hr><ul>";
-
-	DIR *dir = opendir(directoryPath.c_str());
-	if (dir)
-	{
-		struct dirent *entry;
-		while ((entry = readdir(dir)) != NULL)
-		{
-			std::string name = entry->d_name;
-			if (name == ".")
-				continue; // Skip current directory
-			if (name == "..")
-				html << "<li><a href=\"" << uri << "../\">Parent Directory</a></li>";
-			else
-				html << "<li><a href=\"" << uri << name << (entry->d_type == DT_DIR ? "/" : "") << "\">" << name << "</a></li>";
-		}
-		closedir(dir);
-	}
-	html << "</ul><hr></body></html>";
-	return (html.str());
-}
-
 void Client::handleGET(HTTPRequest	*http)
 {
 	std::string filePath = http->resolveFilePath(_currentConfig);
 	// std::cout << "FILE PATH : " << filePath << std::endl;
 	if (filePath == "403")
 	{
-        serveErrorResponse(403);
-        return;
-    }
+		serveErrorResponse(403);
+		return;
+	}
 
 	struct stat pathStat;
 	if (stat(filePath.c_str(), &pathStat) == 0 && S_ISDIR(pathStat.st_mode))
 	{
-		std::string directoryListing = directoryList(filePath, http->request.uri);
+		std::string directoryListing = HTTPResponse::directoryList(filePath, http->request.uri);
 		prepareResponse(200, "text/html", directoryListing, "", "");
 		return;
 	}
@@ -443,7 +393,7 @@ void Client::handlePOST(HTTPRequest *http)
 		size_t start = http->request.body.find(fullBoundary);
 		if (start == std::string::npos)
 		{
-			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Starting boundary not found");
+			serveErrorResponse(400);//Starting boundary not found");
 			return;
 		}
 		start += fullBoundary.length() + 2;
@@ -455,14 +405,14 @@ void Client::handlePOST(HTTPRequest *http)
 			end = http->request.body.find(closingBoundary, start);
 		if (end == std::string::npos)
 		{
-			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Ending boundary not found");
+			serveErrorResponse(400);//Bad Request: Ending boundary not found");
 			return;
 		}
 		std::string part = http->request.body.substr(start, end - start);
 		size_t headerEnd = part.find("\r\n\r\n");
 		if (headerEnd == std::string::npos)
 		{
-			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Could not find headers in part");
+			serveErrorResponse(400);//Could not find headers in part");
 			return;
 		}
 		headerEnd += 4;
@@ -471,14 +421,14 @@ void Client::handlePOST(HTTPRequest *http)
 		size_t filenamePos = part.find("filename=\"");
 		if (filenamePos == std::string::npos)
 		{
-			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Filename not found in Content-Disposition header");
+			serveErrorResponse(400);//Filename not found in Content-Disposition header");
 			return;
 		}
 		filenamePos += 10;
 		size_t filenameEnd = part.find("\"", filenamePos);
 		if (filenameEnd == std::string::npos)
 		{
-			serveErrorResponse(400);//prepareErrorResponse(400, "text/plain", "400 Bad Request: Invalid filename in Content-Disposition header");
+			serveErrorResponse(400);//Invalid filename in Content-Disposition header");
 			return;
 		}
 		std::string filename = part.substr(filenamePos, filenameEnd - filenamePos);
@@ -544,19 +494,7 @@ void Client::prepareResponse(int statusCode, const std::string &contentType, con
 		return;
 	}
 	HTTPResponse response;
-	std::stringstream ss;
-	ss << body.size();
-	response.setStatus(statusCode)
-			.setHeader("Content-Type", contentType)
-			.setHeader("Content-Length", ss.str())
-			.setBody(body);
-	if (!redirect.empty())
-	{
-		response.setHeader("Location", redirect)
-				.setHeader("Connection", "close");
-	}
-	if (!additionalHeaders.empty())
-		response.addRawHeaders(additionalHeaders);
+	response.setResponse(statusCode, contentType, body, redirect, additionalHeaders);
 	_responseBuffer = response.toString();
 	response.logResponse(getCurrentTimestamp());
 }
@@ -590,10 +528,11 @@ void Client::serveErrorResponse(int statusCode)
 			buffer << file.rdbuf();
 			std::string body = buffer.str();
 			prepareErrorResponse(statusCode, "text/html", body);
+			resetState();
 			return;
 		}
 		else
-			std::cerr << "Failed to open custom error page: " << errorPagePath << std::endl;
+			std::cerr << "[ERROR] Failed to open custom error page: " << errorPagePath << std::endl;
 	}
 
 	std::string errorPage = ErrorPage::generate(statusCode);
@@ -613,4 +552,5 @@ void Client::serveErrorResponse(int statusCode)
 						"<p>Something went wrong. Please try again later.</p></body></html>";
 		prepareErrorResponse(500, "text/html", body);
 	}
+	resetState();
 }

@@ -25,9 +25,11 @@ CGI &CGI::operator=(CGI const &rhs)
 	{
 		this->_fullPath = rhs._fullPath;
 		this->_argv = rhs._argv;
-		this->_envBuffer = rhs._envBuffer;
 		this->_env = rhs._env;
+		this->_envBuffer = rhs._envBuffer;
 		this->_currentConfig = rhs._currentConfig;
+		this->_cgiOutput = rhs._cgiOutput;
+		this->_cgiHeaders = rhs._cgiHeaders;
 	}
 	return (*this);
 };
@@ -38,6 +40,27 @@ CGI::CGI(ConfigFileServer const &currentConfig) : _currentConfig(currentConfig) 
 
 void CGI::setupEnvironment(const HTTPRequest &http)
 {
+	_envBuffer.gatewayInterface = "GATEWAY_INTERFACE=CGI/1.1";
+	if (http.request.headers.count("Query-String"))
+		_envBuffer.queryString = "QUERY_STRING=" + http.request.headers.at("Query-String");
+	else
+		_envBuffer.queryString = "QUERY_STRING=";
+
+	if (http.request.headers.count("X-Forwarded-For"))
+		_envBuffer.remoteAddr = "REMOTE_ADDR=" + http.request.headers.at("X-Forwarded-For");
+	else
+		_envBuffer.remoteAddr = "REMOTE_ADDR=127.0.0.1";
+
+	if (http.request.headers.count("X-Server-Port"))
+		_envBuffer.serverPort = "SERVER_PORT=" + http.request.headers.at("X-Server-Port");
+	else
+		_envBuffer.serverPort = "SERVER_PORT=80";
+
+	if (http.request.headers.count("Protocol"))
+		_envBuffer.serverProtocol = "SERVER_PROTOCOL=" + http.request.headers.at("Protocol");
+	else
+		_envBuffer.serverProtocol = "SERVER_PROTOCOL=HTTP/1.1";
+
 	_envBuffer.reqMethod = "REQUEST_METHOD=" + http.request.method;
 	_envBuffer.reqUri = "REQUEST_URI=" + http.request.uri;
 	_envBuffer.pathInfo = "PATH_INFO=" + _fullPath;
@@ -57,6 +80,11 @@ void CGI::setupEnvironment(const HTTPRequest &http)
 		_envBuffer.redirectStatus = "REDIRECT_STATUS=1";
 		_env.push_back(const_cast<char*>(_envBuffer.redirectStatus.c_str()));
 	}
+	_env.push_back(const_cast<char*>(_envBuffer.gatewayInterface.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.queryString.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.remoteAddr.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.serverPort.c_str()));
+	_env.push_back(const_cast<char*>(_envBuffer.serverProtocol.c_str()));
 	_env.push_back(const_cast<char*>(_envBuffer.reqMethod.c_str()));
 	_env.push_back(const_cast<char*>(_envBuffer.reqUri.c_str()));
 	_env.push_back(const_cast<char*>(_envBuffer.pathInfo.c_str()));
@@ -100,7 +128,6 @@ void CGI::setup(const HTTPRequest &http)
 void CGI::execute(HTTPRequest *http)
 {
 	_fullPath = http->resolveFilePath(_currentConfig);
-	// std::cout << "CGI FILE PATH : " << _fullPath << std::endl;
 	setup(*http);
 	int socketPair[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, socketPair) < 0)
@@ -113,61 +140,92 @@ void CGI::execute(HTTPRequest *http)
 		throw std::runtime_error("[ERROR] Fork failed");
 	}
 	if (pid == 0)
-	{
-		close(socketPair[0]);
-		size_t pos = _fullPath.find_last_of('/');
-		if (pos != std::string::npos)
-		{
-			std::string dirPath = _fullPath.substr(0, pos);
-			if (chdir(dirPath.c_str()) == -1)
-				(close(socketPair[1]), kill(0, SIGKILL));
-		}
-		int log_fd = open("/var/log/cgi_errors.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
-		if (log_fd == -1)
-			log_fd = open("/dev/null", O_WRONLY);
-		if (dup2(socketPair[1], STDIN_FILENO) == -1 || dup2(socketPair[1], STDOUT_FILENO) == -1 || dup2(log_fd, STDERR_FILENO) == -1)
-			(close(socketPair[1]), close(log_fd), kill(0, SIGKILL));
-		if (access(_argv[0], F_OK | R_OK | X_OK) == -1)
-			(close(socketPair[1]), close(log_fd), kill(0, SIGKILL));
-		(close(socketPair[1]), close(log_fd));
-		execve(_argv[0], _argv.data(), _env.data());
-		kill(0, SIGKILL);
-	}
+		childProcess(socketPair);
 	else
-	{
-		close(socketPair[1]);
-		if ((http->request.method == "POST" || http->request.method == "DELETE") && !http->request.body.empty())
-		{
-			ssize_t bytesWritten = write(socketPair[0], http->request.body.c_str(), http->request.body.size());
-			if (bytesWritten < 0)
-				std::cerr << "[ERROR] writing to CGI failed" << std::endl;
-		}
-		// does this make sense since its dechunked? --if no Content-Length header read until EOF
-		char buffer[4096];
-		ssize_t bytesRead;
-		while ((bytesRead = read(socketPair[0], buffer, sizeof(buffer))) > 0)
-			_cgiOutput.append(buffer, bytesRead);
-		if (bytesRead < 0)
-			std::cerr << "[ERROR] Failed to read from CGI pipe: " << strerror(errno) << std::endl;
-		
-		close(socketPair[0]);
-		int status;
-		if (waitpid(pid, &status, 0) == -1)
-			std::cerr << "[ERROR] Failed to wait for child process: " << strerror(errno) << std::endl;
-		else
-		{
-			if (WIFEXITED(status) && WEXITSTATUS(status) == 0) // != 0 ERROR
-				return; // sendErrorResponseToClient(500, "Internal Server Error");std::cerr << "CGI script exited with status: " << WEXITSTATUS(status) << std::endl;
-			else if (WIFSIGNALED(status))
-				std::cerr << "[ERROR] CGI script terminated by signal: " << WTERMSIG(status) << std::endl;
-			else
-				std::cerr << "[ERROR] CGI script exited with unknown status." << std::endl;
-		}
-		// returns need the serverErrorResponse validation?
-	}
+		parentProcess(socketPair, pid, http);
 };
+
+void CGI::childProcess(int socketPair[2])
+{
+	close(socketPair[0]);
+	size_t pos = _fullPath.find_last_of('/');
+	if (pos != std::string::npos)
+	{
+		std::string dirPath = _fullPath.substr(0, pos);
+		if (chdir(dirPath.c_str()) == -1)
+			(close(socketPair[1]), kill(0, SIGKILL));
+	}
+	int log_fd = open("/var/log/cgi_errors.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+	if (log_fd == -1)
+		log_fd = open("/dev/null", O_WRONLY);
+	if (dup2(socketPair[1], STDIN_FILENO) == -1 || dup2(socketPair[1], STDOUT_FILENO) == -1 || dup2(log_fd, STDERR_FILENO) == -1)
+		(close(socketPair[1]), close(log_fd), kill(0, SIGKILL));
+	if (access(_argv[0], F_OK | R_OK | X_OK) == -1)
+		(close(socketPair[1]), close(log_fd), kill(0, SIGKILL));
+	(close(socketPair[1]), close(log_fd));
+	execve(_argv[0], _argv.data(), _env.data());
+	kill(0, SIGKILL);
+}
+
+void CGI::parentProcess(int socketPair[2], pid_t pid, HTTPRequest *http)
+{
+	close(socketPair[1]);
+	if ((http->request.method == "POST" || http->request.method == "DELETE") && !http->request.body.empty())
+	{
+		ssize_t bytesWritten = write(socketPair[0], http->request.body.c_str(), http->request.body.size());
+		if (bytesWritten < 0)
+		{
+			close(socketPair[1]);
+			throw std::runtime_error("[ERROR] Writing to CGI process failed");
+		}
+	}
+
+	// does this make sense since its dechunked? --if no Content-Length header read until EOF
+	char buffer[4096];
+	ssize_t bytesRead;
+	while ((bytesRead = read(socketPair[0], buffer, sizeof(buffer))) > 0)
+		_cgiOutput.append(buffer, bytesRead);
+	if (bytesRead < 0)
+	{
+		close(socketPair[0]);
+		throw std::runtime_error("[ERROR] Failed to read CGI process");
+	}
+
+	int status;
+	if (waitpid(pid, &status, 0) == -1)
+		throw std::runtime_error("[ERROR] Failed to wait CGI process");
+	if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+		throw std::runtime_error("[ERROR] CGI script exited with error status"); //+ std::to_string(WEXITSTATUS(status)
+	else if (WIFSIGNALED(status))
+		throw std::runtime_error("[ERROR] CGI script terminated by signal"); //+ std::to_string(WTERMSIG(status)
+	if (_cgiOutput.empty())
+		throw std::runtime_error("[ERROR] Invalid CGI output");
+	extractHeadersCGIOutput();
+}
+
+void CGI::extractHeadersCGIOutput(void)
+{
+	size_t headerEnd;
+	
+	if (_fullPath.find(".py") != std::string::npos)
+		headerEnd = _cgiOutput.find("\n\n");
+	else
+		headerEnd = _cgiOutput.find("\r\n\r\n");
+	if (headerEnd == std::string::npos)
+		throw std::runtime_error("[ERROR] Malformed CGI output: Missing headers");
+
+	_cgiHeaders = _cgiOutput.substr(0, headerEnd);
+	_cgiOutput = _cgiOutput.substr(headerEnd + (_fullPath.find(".py") != std::string::npos ? 2 : 4));
+	if (_cgiHeaders.find("Content-Type") == std::string::npos && _cgiHeaders.find("Content-type") == std::string::npos)
+		throw std::runtime_error("[ERROR] Missing Content-Type in CGI output");
+}
 
 std::string const CGI::getOutput(void)
 {
 	return (_cgiOutput);
+}
+
+std::string const CGI::getHeaders(void)
+{
+	return (_cgiHeaders);
 }

@@ -45,6 +45,7 @@ class HTTPRequest
 		~HTTPRequest(void);
 		
 		HttpRequest	request;
+		std::string	resolvedFilePath;
 		void parserHeaders(const std::string &rawRequest);
 		void parserBody(const std::string &rawRequest);
 		std::string resolveFilePath(const ConfigFileServer &config) const;

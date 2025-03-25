@@ -14,6 +14,7 @@
 #define CGI_HPP
 
 #include "HTTPRequest.hpp"
+#include "Client.hpp"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -29,6 +30,11 @@
 
 struct envCGI
 {
+	std::string gatewayInterface;
+	std::string queryString;
+	std::string remoteAddr;
+	std::string serverPort;
+	std::string serverProtocol;
 	std::string reqMethod;
 	std::string reqUri;
 	std::string pathInfo;
@@ -50,18 +56,24 @@ class CGI
 		envCGI						_envBuffer;
 		ConfigFileServer			_currentConfig;
 		std::string					_cgiOutput;
+		std::string					_cgiHeaders;
+
+		void setup(const HTTPRequest &http);
+		void setupEnvironment(const HTTPRequest &http);
+		void childProcess(int socketPair[2]);
+		void parentProcess(int socketPair[2], pid_t pid, HTTPRequest *http);
+		void extractHeadersCGIOutput(void);
 
 	public:
 		CGI(void);
 		CGI(CGI const &src);
 		CGI &operator=(CGI const &rhs);
 		~CGI(void);
-
-		CGI(ConfigFileServer const &currentConfig);
+		
 		void execute(HTTPRequest *http);
-		void setup(const HTTPRequest &http);
-		void setupEnvironment(const HTTPRequest &http);
+		CGI(ConfigFileServer const &currentConfig);
 		std::string const getOutput(void);
+		std::string const getHeaders(void);
 };
-
+		
 #endif
