@@ -35,6 +35,7 @@ void SignalHandler::handleUrgentData(int sig)
 	char	buffer[1];
 
 	(void)sig;
+	//[EVAL] should we handle this?
 	bytesRead = recv(clientSocket, buffer, sizeof(buffer), MSG_OOB);// should a recv be here? revise
 	if (bytesRead > 0)
 		std::cout << "Received OOB data: " << buffer[0] << std::endl; //must handle this scenario

@@ -130,6 +130,7 @@ void Client::handleRequest(HTTPRequest &http)
 	http.logRequest(getCurrentTimestamp());
 
 	// DO WE NEED TO PARSE FOR VALID HOSTNAMES???? and for $ variables?
+	
 	if (!http.validateRequest(_currentConfig, *this))
 		return;
 	
@@ -151,6 +152,7 @@ void Client::handleRequest(HTTPRequest &http)
 	catch (const std::exception &e)
 	{
 		std::cerr << e.what() << std::endl;
+		//close client?
 		prepareErrorResponse(500);
 		return;
 	}
@@ -333,6 +335,7 @@ void Client::handlePOST(HTTPRequest *http)
 
 void Client::handleDELETE(HTTPRequest *http)
 {
+	//[EVAL]try to delete something with and without permissions from config file and chmod000
 	std::string root = http->resolveFilePath(_currentConfig);
 	std::string filename = http->request.headers["X-Filename"];
 	filename.erase(std::remove(filename.begin(), filename.end(), '\r'), filename.end());
@@ -376,6 +379,7 @@ void Client::prepareErrorResponse(int statusCode)
 			std::stringstream buffer;
 			buffer << file.rdbuf();
 			std::string body = buffer.str();
+			response.setHeader("Connection", "close");
 			_responseBuffer = response.setResponse(statusCode, "text/html", body, "", "");
 			resetState();
 			return;
@@ -391,6 +395,7 @@ void Client::prepareErrorResponse(int statusCode)
 		std::stringstream buffer;
 		buffer << file.rdbuf();
 		std::string body = buffer.str();
+		response.setHeader("Connection", "close");
 		_responseBuffer = response.setResponse(statusCode, "text/html", body, "", "");
 		ErrorPage::cleanup(errorPage);
 	}
@@ -399,11 +404,12 @@ void Client::prepareErrorResponse(int statusCode)
 		std::string body = "<html><head><title>500 Internal Server Error</title></head>"
 						"<body><h1>500 Internal Server Error</h1>"
 						"<p>Something went wrong. Please try again later.</p></body></html>";
+		response.setHeader("Connection", "close");
 		_responseBuffer = response.setResponse(500, "text/html", body, "", "");
 	}
 	resetState();
 }
-
+// Connected to localhost (::1) port 443 this is false because secure connection self signed certs dont work
 void Client::closeClient()
 {
 	if (_clientSocket != -1)

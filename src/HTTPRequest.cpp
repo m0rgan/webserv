@@ -267,6 +267,9 @@ const ConfigFileServerLocation* HTTPRequest::matchLocation(const ConfigFileServe
 
 bool HTTPRequest::validateRequest(const ConfigFileServer &config, Client &client)
 {
+	
+	if (request.method != "GET" && request.method != "POST" && request.method != "DELETE")
+		return (client.prepareErrorResponse(400), (false));
 	const ConfigFileServerLocation *matchedLocation = matchLocation(config);
 
 	if (locationReturn(matchedLocation, client))

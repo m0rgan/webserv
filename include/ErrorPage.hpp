@@ -22,12 +22,13 @@ class ErrorPage
 {
 	private:
 		static std::map<int, std::string> initErrorStatusCodes();
-		static const std::map<int, std::string> errorStatusCodes;
+		static const std::map<int, std::string> _errorStatusCodes;
 	public:
 		ErrorPage(void);
 		ErrorPage(ErrorPage const &src);
 		ErrorPage &operator=(ErrorPage const &rhs);
 		~ErrorPage(void);
+
 		static std::string generate(int errorCode);
 		static void cleanup(const std::string &filePath);
 		static bool isErrorStatusCode(int statusCode);

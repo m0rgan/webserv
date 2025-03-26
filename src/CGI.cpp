@@ -178,6 +178,7 @@ void CGI::parentProcess(int socketPair[2], pid_t pid, HTTPRequest *http)
 			close(socketPair[1]);
 			throw std::runtime_error("[ERROR] Writing to CGI process failed");
 		}
+		//add -1 and 0
 	}
 
 	// does this make sense since its dechunked? --if no Content-Length header read until EOF
@@ -190,7 +191,7 @@ void CGI::parentProcess(int socketPair[2], pid_t pid, HTTPRequest *http)
 		close(socketPair[0]);
 		throw std::runtime_error("[ERROR] Failed to read CGI process");
 	}
-
+//add -1 and 0
 	int status;
 	if (waitpid(pid, &status, 0) == -1)
 		throw std::runtime_error("[ERROR] Failed to wait CGI process");

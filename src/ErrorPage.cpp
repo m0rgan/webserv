@@ -12,35 +12,52 @@
 
 #include "ErrorPage.hpp"
 
-const std::map<int, std::string> ErrorPage::errorStatusCodes = ErrorPage::initErrorStatusCodes();
+ErrorPage::ErrorPage(void) {}
+
+ErrorPage::ErrorPage(ErrorPage const &src)
+{
+	*this = src;
+}
+
+ErrorPage &ErrorPage::operator=(ErrorPage const &rhs)
+{
+	if (this != &rhs)
+		return (*this);
+	return (*this);
+}
+
+ErrorPage::~ErrorPage(void) {}
+
+const std::map<int, std::string> ErrorPage::_errorStatusCodes = ErrorPage::initErrorStatusCodes();
 
 std::map<int, std::string> ErrorPage::initErrorStatusCodes()
 {
-	std::map<int, std::string> codes;
-	codes[400] = "Bad Request";
-	codes[401] = "Unauthorized";
-	codes[403] = "Forbidden";
-	codes[404] = "Not Found";
-	codes[405] = "Method Not Allowed";
-	codes[408] = "Request Timeout";
-	codes[413] = "Payload Too Large";
-	codes[500] = "Internal Server Error";
-	codes[501] = "Not Implemented";
-	codes[503] = "Service Unavailable";
-	codes[504] = "Gateway Timeout";
-	return (codes);
+	std::map<int, std::string> status;
+	status[400] = "Bad Request";
+	status[401] = "Unauthorized";
+	status[403] = "Forbidden";
+	status[404] = "Not Found";
+	status[405] = "Method Not Allowed";
+	status[408] = "Request Timeout";
+	status[413] = "Payload Too Large";
+	status[500] = "Internal Server Error";
+	status[501] = "Not Implemented";
+	status[503] = "Service Unavailable";
+	status[504] = "Gateway Timeout";
+	return (status);
 }
 
 std::string ErrorPage::generate(int errorCode)
 {
 	std::string errorName = "Unknown Error";
-	std::map<int, std::string>::const_iterator it = errorStatusCodes.find(errorCode);
-	if (it != errorStatusCodes.end())
+	std::map<int, std::string>::const_iterator it = _errorStatusCodes.find(errorCode);
+	if (it != _errorStatusCodes.end())
 		errorName = it->second;
 	std::ostringstream html;
-	html << "<html><head><title>" << errorCode << " " << errorName << "</title></head>"
-		<< "<body><h1>" << errorCode << " - " << errorName << "</h1>"
-		<< "<p>Something went wrong. Ask migumore because gabrifer doesn't know</p></body></html>";
+	html << "<html>\n<head><title>" << errorCode << " " << errorName << "</title></head>\n"
+		 << "<body>\n<center><h1>" << errorCode << " - " << errorName << "</h1></center>\n"
+		 << "<hr><center>webserv</center>\n"
+		 << "<p><center>Something went wrong. Ask migumore because gabrifer doesn't know</p></center>\n</body>\n</html>\n";
 
 	std::stringstream ss;
 	ss << errorCode;
@@ -60,5 +77,5 @@ void ErrorPage::cleanup(const std::string &filePath)
 
 bool ErrorPage::isErrorStatusCode(int statusCode)
 {
-	return (errorStatusCodes.find(statusCode) != errorStatusCodes.end());
+	return (_errorStatusCodes.find(statusCode) != _errorStatusCodes.end());
 }
