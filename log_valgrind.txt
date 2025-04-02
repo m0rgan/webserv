@@ -1,8 +1,8 @@
-==4131053== Memcheck, a memory error detector
-==4131053== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
-==4131053== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
-==4131053== Command: ./webserv webserv.conf
-==4131053== 
+==1191132== Memcheck, a memory error detector
+==1191132== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==1191132== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==1191132== Command: ./webserv webserv.conf
+==1191132== 
 CONFIG FILE PRINT 
 Server 1:
   Server Name: localhost
@@ -14,7 +14,7 @@ Server 1:
   Max Body Size: 1048576
   Return Directives: 
   Location: /
-  Root: /home/migumore/mmv/github/webserv/bonus/website/content
+  Root: /home/migumore/mmv/github/webserv/bonus/website/content/
   Index Files: index2.html index.php index.py 
   Allowed Methods: 
   Auto Index: Disabled
@@ -35,13 +35,14 @@ Server 1:
   Allowed Methods: 
   Auto Index: Disabled
   Max Body Size: 1048576 bytes
+  Error Pages: 404 -> .html 
     Return Directives: 
 ---------------------------
   Location: /php
   Root: /var/www/bonus-website
   Index Files: 
   Allowed Methods: 
-  Auto Index: Disabled
+  Auto Index: Enabled
   Max Body Size: 1 bytes
     Return Directives: 
 ---------------------------
@@ -52,6 +53,15 @@ Server 1:
   Auto Index: Disabled
   Max Body Size: 1 bytes
     Return Directives: 301 -> /error
+---------------------------
+  Location: /sessions
+  Root: 
+  Index Files: 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1 bytes
+  Error Pages: 404 -> .html 
+    Return Directives: 
 ---------------------------
 
 
@@ -142,23 +152,18 @@ Server listening on 0.0.0.0:8080
 Server listening on 0.0.0.0:8080
 [INFO] Launching server: DOMAINBONUS
 Server listening on 0.0.0.0:9090
-[35m[2025-04-01 15:17:08] HTTP/1.1 POST /index.php
-[0m[34m[2025-04-01 15:17:08] HTTP/1.1 200 OK
-[0m[32m[2025-04-01 15:17:08] HTTP/1.1 GET /index.php
-[0m[34m[2025-04-01 15:17:08] HTTP/1.1 200 OK
-[0m[38;5;214m[2025-04-01 15:17:12] HTTP/1.1 DELETE /index.php
-[0m[34m[2025-04-01 15:17:12] HTTP/1.1 200 OK
-[0m[32m[2025-04-01 15:17:12] HTTP/1.1 GET /index.php
-[0m[34m[2025-04-01 15:17:12] HTTP/1.1 200 OK
+[35m[2025-04-02 15:22:02] HTTP/1.1 POST /sessions
+[0m60-1048576
+[34m[2025-04-02 15:22:02] HTTP/1.1 400 Bad Request
 [0m[SIGNAL] Caught signal 2 - Shutting down server
-==4131053== 
-==4131053== FILE DESCRIPTORS: 3 open (3 std) at exit.
-==4131053== 
-==4131053== HEAP SUMMARY:
-==4131053==     in use at exit: 0 bytes in 0 blocks
-==4131053==   total heap usage: 1,334 allocs, 1,334 frees, 356,727 bytes allocated
-==4131053== 
-==4131053== All heap blocks were freed -- no leaks are possible
-==4131053== 
-==4131053== For lists of detected and suppressed errors, rerun with: -s
-==4131053== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==1191132== 
+==1191132== FILE DESCRIPTORS: 3 open (3 std) at exit.
+==1191132== 
+==1191132== HEAP SUMMARY:
+==1191132==     in use at exit: 0 bytes in 0 blocks
+==1191132==   total heap usage: 653 allocs, 653 frees, 248,718 bytes allocated
+==1191132== 
+==1191132== All heap blocks were freed -- no leaks are possible
+==1191132== 
+==1191132== For lists of detected and suppressed errors, rerun with: -s
+==1191132== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

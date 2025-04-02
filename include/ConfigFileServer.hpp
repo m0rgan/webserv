@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ConfigFileServer.hpp                               :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/23 13:42:42 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 13:42:42 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/02 18:19:38 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,21 +17,21 @@
 #include <vector>
 #include <map>
 #include <iostream>
-#include "ConfigFileServerLocation.hpp"
+#include <ConfigFileServerLocation.hpp>
 
 class ConfigFileServer
 {
 	private:
-		std::string 								_serverName;  // Defines the virtual host names server_name example.com www.example.com; Only responds to requests with Host: example.com
-		std::vector<std::pair <std::string, int> > 	_hostPort;
-		std::string 								_root;
-		std::vector<std::string>					_indexFiles;
-		std::map<int, std::string>					_errorPages;
+		std::string 									_serverName;  // Defines the virtual host names server_name example.com www.example.com; Only responds to requests with Host: example.com
+		std::vector<std::pair <std::string, int> > 		_hostPort;
+		std::string 									_root;
+		std::vector<std::string>						_indexFiles;
+		std::map<int, std::string>						_errorPages;
 		std::map<std::string, ConfigFileServerLocation>	_locations;
-		size_t										_maxBodySize;
-		bool										_autoIndex;
-		std::pair<int, std::string> 				_returnDirective;
-		bool 										_hasReturnDirective;
+		size_t											_maxBodySize;
+		bool											_autoIndex;
+		std::pair<int, std::string> 					_returnDirective;
+		bool 											_hasReturnDirective;
 		// default host:port?
 
 	public:
@@ -55,6 +55,7 @@ class ConfigFileServer
 		void addErrorPage(int errorCode, const std::string &pagePath);
 		void addLocation(const ConfigFileServerLocation &location);
 		void addIndexFile(const std::string &file);
+		void setIndexFiles(const std::vector<std::string> &files);
 		void setAutoIndex(bool enabled);
 		void setMaxBodySize(size_t size);
 		void addReturnDirective(int statusCode, const std::string &url);

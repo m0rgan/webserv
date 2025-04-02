@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ConfigFileServer.cpp                               :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/23 13:39:45 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 13:39:45 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/02 18:14:47 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -47,14 +47,11 @@ const std::map<std::string, ConfigFileServerLocation> &ConfigFileServer::getLoca
 void ConfigFileServer::setAutoIndex(bool enabled) { _autoIndex = enabled; }
 bool ConfigFileServer::getAutoIndex() const { return this->_autoIndex; }
 void ConfigFileServer::addIndexFile(const std::string &file) { _indexFiles.push_back(file); }
+void ConfigFileServer::setIndexFiles(const std::vector<std::string> &files) { _indexFiles.clear(); _indexFiles = files; }
 const std::vector<std::string> &ConfigFileServer::getIndexFiles() const { return this->_indexFiles; }
 void ConfigFileServer::setMaxBodySize(size_t size) { _maxBodySize = size; }
 size_t ConfigFileServer::getMaxBodySize() const { return this->_maxBodySize; }
-void ConfigFileServer::addReturnDirective(int statusCode, const std::string &url)
-{
-	_returnDirective = std::make_pair(statusCode, url);
-	_hasReturnDirective = true;
-}
+void ConfigFileServer::addReturnDirective(int statusCode, const std::string &url) { _returnDirective = std::make_pair(statusCode, url); _hasReturnDirective = true; }
 bool ConfigFileServer::hasReturnDirective() const {return _hasReturnDirective;}
 int ConfigFileServer::getReturnStatusCode() const {return _returnDirective.first;}
 const std::string &ConfigFileServer::getReturnUrl() const {return _returnDirective.second;}

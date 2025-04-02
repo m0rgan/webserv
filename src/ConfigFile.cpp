@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/05 13:00:30 by migumore          #+#    #+#             */
-/*   Updated: 2025/04/01 18:27:24 by migumore         ###   ########.fr       */
+/*   Updated: 2025/04/02 18:46:53 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,7 +37,7 @@ void ConfigFile::parser(const std::string &filename)
 {
 	std::ifstream file(filename.c_str());
 	if (!file)
-		throw std::runtime_error("Error: Cannot open configuration file: " + filename);
+		throw std::runtime_error("[ERROR] Cannot open configuration file: " + filename);
 	std::string line;
 	while (std::getline(file, line))
 	{
@@ -65,19 +65,18 @@ ConfigFileServer ConfigFile::parseServerBlock(std::ifstream &file)
 	ConfigFileServer configFileServer;
 	std::string line;
 	bool hasListenDirective = false;
-
 	while (std::getline(file, line))
 	{
 		line = ignoreComments(line);
 		std::istringstream lineStream(line);
 		std::string key;
 		if (!(lineStream >> key))
-			continue; // Skip empty lines
+			continue;
 		if (key == "}")
 		{
 			if (!hasListenDirective)
 				parseListenDirective("80", configFileServer);
-			break; // End of server block
+			break;
 		}
 		if (key == "location")
 		{
@@ -85,9 +84,9 @@ ConfigFileServer ConfigFile::parseServerBlock(std::ifstream &file)
 			lineStream >> locationPath;
 			std::string remaining;
 			if (lineStream >> remaining && remaining != "{")
-				throw std::invalid_argument("Invalid syntax, expected {");
+				throw std::runtime_error("Invalid syntax, expected { after location path");
 			if (lineStream >> remaining)
-				throw std::runtime_error("Invalid syntax after {");
+				throw std::runtime_error("Unexpected characters after location block opening");
 			ConfigFileServerLocation location = parseLocationBlock(file, locationPath);
 			configFileServer.addLocation(location);
 		}
@@ -98,10 +97,79 @@ ConfigFileServer ConfigFile::parseServerBlock(std::ifstream &file)
 			serverParseKeyValue(lineStream, key, configFileServer);
 		}
 	}
-	if (hasDuplicateHostPort(configFileServer))
-		throw std::runtime_error("Error: Duplicate host:port combination found in server block.");
-	return (configFileServer);
+	// :large_yellow_circle: Override server-level directives with location / if explicitly defined
+	const std::map<std::string, ConfigFileServerLocation>& locations = configFileServer.getLocations();
+	std::map<std::string, ConfigFileServerLocation>::const_iterator it = locations.find("/");
+	if (it != locations.end())
+	{
+		const ConfigFileServerLocation& rootLocation = it->second;
+		// Override root if explicitly set
+		if (!rootLocation.getRoot().empty())
+			configFileServer.setRoot(rootLocation.getRoot());
+		// Override index files if explicitly set
+		if (!rootLocation.getIndexFiles().empty())
+			configFileServer.setIndexFiles(rootLocation.getIndexFiles());
+		// Override autoindex only if it's different from the default (false)
+		if (rootLocation.getAutoIndex() != false)
+			configFileServer.setAutoIndex(rootLocation.getAutoIndex());
+		// Override maxBodySize only if it's different from default (1048576 = 1MB)
+		if (rootLocation.getMaxBodySize() != 1048576)
+			configFileServer.setMaxBodySize(rootLocation.getMaxBodySize());
+		// Override return directive if explicitly set
+		if (rootLocation.hasReturnDirective())
+		{
+			configFileServer.addReturnDirective(
+				rootLocation.getReturnStatusCode(),
+				rootLocation.getReturnUrl()
+			);
+		}
+	}
+	return configFileServer;
 }
+
+// ConfigFileServer ConfigFile::parseServerBlock(std::ifstream &file)
+// {
+// 	ConfigFileServer configFileServer;
+// 	std::string line;
+// 	bool hasListenDirective = false;
+
+// 	while (std::getline(file, line))
+// 	{
+// 		line = ignoreComments(line);
+// 		std::istringstream lineStream(line);
+// 		std::string key;
+// 		if (!(lineStream >> key))
+// 			continue; // Skip empty lines
+// 		if (key == "}")
+// 		{
+// 			if (!hasListenDirective)
+// 				parseListenDirective("80", configFileServer);
+// 			break; // End of server block
+// 		}
+// 		if (key == "location")
+// 		{
+// 			std::string locationPath;
+// 			lineStream >> locationPath;
+// 			std::string remaining;
+// 			if (lineStream >> remaining && remaining != "{")
+// 				throw std::invalid_argument("Invalid syntax, expected {");
+// 			if (lineStream >> remaining)
+// 				throw std::runtime_error("Invalid syntax after {");
+// 			ConfigFileServerLocation location = parseLocationBlock(file, locationPath);
+// 			location.inheritFromServer(configFileServer);
+// 			configFileServer.addLocation(location);
+// 		}
+// 		else
+// 		{
+// 			if (key == "listen")
+// 				hasListenDirective = true;
+// 			serverParseKeyValue(lineStream, key, configFileServer);
+// 		}
+// 	}
+// 	if (hasDuplicateHostPort(configFileServer))
+// 		throw std::runtime_error("Error: Duplicate host:port combination found in server block.");
+// 	return (configFileServer);
+// }
 
 ConfigFileServerLocation ConfigFile::parseLocationBlock(std::ifstream &file, const std::string &locationPath)
 {
@@ -211,7 +279,7 @@ void ConfigFile::serverParseKeyValue(std::istringstream &lineStream, const std::
 	{
 		std::string value;
 		lineStream >> value;
-		configFileServer.setAutoIndex(value == "on"); //may not need this?
+		configFileServer.setAutoIndex(value == "on");
 	}
 	else if (key == "client_max_body_size")
 	{
@@ -460,9 +528,8 @@ void ConfigFile::printConfig() const
 		const std::map<std::string, ConfigFileServerLocation> &locations = config.getLocations();
 		for (std::map<std::string, ConfigFileServerLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
 			it->second.printLocationConfig();
-
+		std::cout << "---------------------------" << std::endl;
 		std::cout << std::endl;
-	std::cout << std::endl;
-	std::cout << std::endl;
+
 }
 }

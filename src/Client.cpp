@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 17:00:36 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/04/01 19:11:23 by migumore         ###   ########.fr       */
+/*   Updated: 2025/04/02 15:19:55 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -410,21 +410,15 @@ std::string resolveErrorPage(int statusCode, const std::string& requestURI, cons
 			std::string uri = errIt->second;
 			std::stringstream ss;
 			ss << errIt->first;
-			std::cerr << "SS IS BEING PRINTED ====" << ss.str() << std::endl;
-			if (matchedLocation->hasAlias())  // You’ll need to implement this if not already
+			if (matchedLocation->hasAlias())
 			{
 				std::string relativePath = "/" + ss.str() + uri;
-				std::cerr << "realtive path ====" << relativePath << std::endl;
 				if (uri.find(matchedPrefix) == 0)
 					relativePath = uri.substr(matchedPrefix.length());
-				std::cerr << "first matCHED	location ====" << matchedLocation->getAlias() << relativePath << std::endl;
 				return (matchedLocation->getAlias() + relativePath);
 			}
 			else
-			{
-				std::cerr << "second matCHED	location ====" << matchedLocation->getRoot() << "/" << ss.str() << uri << std::endl;
 				return (matchedLocation->getRoot() + "/" + ss.str() + uri);
-			}
 		}
 	}
 	// 2. Fallback to server-level error pages
@@ -446,7 +440,7 @@ std::string resolveErrorPage(int statusCode, const std::string& requestURI, cons
 		}
 	}
 	// Not found
-	return "HOLA";
+	return "";
 }
 void Client::prepareErrorResponse(int statusCode)
 {
@@ -462,11 +456,9 @@ void Client::prepareErrorResponse(int statusCode)
 	std::string errorPagePath = resolveErrorPage(statusCode, requestURI, _currentConfig);
 	if (!errorPagePath.empty())
 	{
-		std::cerr << "ERROR PAGE PATH NOT EMPY ====" << std::endl;
 		std::ifstream file(errorPagePath.c_str(), std::ios::binary);
 		if (file)
 		{
-			std::cerr << "FILE NOY EMPTY ====" << std::endl;
 			std::stringstream buffer;
 			buffer << file.rdbuf();
 			std::string body = buffer.str();
@@ -474,10 +466,6 @@ void Client::prepareErrorResponse(int statusCode)
 			_responseBuffer = response.setResponse(statusCode, "text/html", body, "", "");
 			resetState();
 			return;
-		}
-		else
-		{
-			std::cerr << "[ERROR] Failed to open error page file: " << errorPagePath << std::endl;
 		}
 	}
 	// Fallback to generated HTML
@@ -502,65 +490,6 @@ void Client::prepareErrorResponse(int statusCode)
 	}
 	resetState();
 }
-
-
-// void Client::prepareErrorResponse(int statusCode)
-// {
-// 	HTTPResponse response;
-// 	const std::map<int, std::string> &errorPages = _currentConfig.getErrorPages();
-// 	std::map<int, std::string>::const_iterator it = errorPages.find(statusCode);
-
-// 	if (it != errorPages.end())
-// 	{
-// 		std::string errorPagePath;
-// 		std::stringstream ss;
-// 		ss << it->first;
-// 		const std::map<std::string, ConfigFileServerLocation> &locations = _currentConfig.getLocations();
-// 		for (std::map<std::string, ConfigFileServerLocation>::const_iterator ite = locations.begin(); ite != locations.end(); ++ite)
-// 		{
-// 			errorPagePath = ite->second.getRoot() + "/" + ss.str() + it->second;
-// 			std::cerr << errorPagePath << std::endl;
-// 			std::ifstream file(errorPagePath.c_str(), std::ios::binary);
-// 				if (file)
-// 					break;	
-// 		}
-// 		std::ifstream file(errorPagePath.c_str(), std::ios::binary);
-// 		if (file)
-// 		{
-// 			std::stringstream buffer;
-// 			buffer << file.rdbuf();
-// 			std::string body = buffer.str();
-// 			response.setHeader("Connection", "close");
-// 			_responseBuffer = response.setResponse(statusCode, "text/html", body, "", "");
-// 			resetState();
-// 			return;
-// 		}
-// 		else
-// 			std::cerr << "[ERROR] Failed to open custom error page: " << errorPagePath << std::endl;
-// 	}
-
-// 	std::string errorPage = ErrorPage::generate(statusCode);
-// 	std::ifstream file(errorPage.c_str(), std::ios::binary);
-// 	if (file)
-// 	{
-// 		std::stringstream buffer;
-// 		buffer << file.rdbuf();
-// 		std::string body = buffer.str();
-// 		response.setHeader("Connection", "close");
-// 		_responseBuffer = response.setResponse(statusCode, "text/html", body, "", "");
-// 		ErrorPage::cleanup(errorPage);
-// 	}
-// 	else
-// 	{
-// 		std::string body = "<html><head><title>500 Internal Server Error</title></head>"
-// 						"<body><h1>500 Internal Server Error</h1>"
-// 						"<p>Something went wrong. Please try again later.</p></body></html>";
-// 		response.setHeader("Connection", "close");
-// 		_responseBuffer = response.setResponse(500, "text/html", body, "", "");
-// 	}
-// 	resetState();
-// }
-// Connected to localhost (::1) port 443 this is false because secure connection self signed certs dont work
 
 bool Client::hasPendingData() const
 {

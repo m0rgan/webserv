@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/23 13:41:30 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/04/01 18:52:50 by migumore         ###   ########.fr       */
+/*   Updated: 2025/04/02 18:37:40 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -79,6 +79,7 @@ bool ConfigFileServerLocation::matchesURI(const std::string &requestURI) const
 
 void ConfigFileServerLocation::printLocationConfig() const
 {
+	std::cout << "---------------------------" << std::endl;
 	std::cout << "  Location: " << _uri << std::endl;
 	std::cout << "  Root: " << _root << std::endl;
 
@@ -125,5 +126,4 @@ void ConfigFileServerLocation::printLocationConfig() const
 	if (hasReturnDirective())
 		std::cout << _returnDirective.first << " -> " << _returnDirective.second;
 	std::cout << std::endl;
-	std::cout << "---------------------------" << std::endl;
 }

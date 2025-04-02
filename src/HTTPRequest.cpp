@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/03 14:58:18 by migumore          #+#    #+#             */
-/*   Updated: 2025/04/01 17:19:38 by migumore         ###   ########.fr       */
+/*   Updated: 2025/04/02 18:34:35 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -246,8 +246,16 @@ bool HTTPRequest::handleReturnDirective(int statusCode, const std::string &redir
 		client.prepareErrorResponse(statusCode);
 		return (true);
 	}
-	std::string body = "Redirecting to " + redirectUrl;
-	client.prepareResponse(statusCode, "text/plain", body, redirectUrl, "");
+	std::stringstream ss;
+	ss << "<html>\r\n"
+	<< "<head><title>" << statusCode << " Moved Permanently</title></head>\r\n"
+	<< "<body>\r\n"
+	<< "<center><h1>" << statusCode << " Moved Permanently</h1></center>\r\n"
+	<< "<hr><center>webserv</center>\r\n"
+	<< "</body>\r\n"
+	<< "</html>\r\n";
+	std::string headers = "Location: " + redirectUrl + "\r\n";
+	client.prepareResponse(statusCode, "text/html", ss.str(), redirectUrl, headers);
 	return (true);
 }
 
@@ -295,7 +303,8 @@ bool HTTPRequest::validateRequest(const ConfigFileServer &config, Client &client
 		return (false);
 	if (matchedLocation && !isMethodAllowed(matchedLocation))
 		return (client.prepareErrorResponse(405), (false));
-	if (contentLength > config.getMaxBodySize())
+	std::cerr << contentLength << "-"<<  config.getRoot() <<"----------"<<  matchedLocation->getURI() << "-"<<  matchedLocation->getMaxBodySize() << std::endl;
+	if (contentLength > matchedLocation->getMaxBodySize())
 		return (client.prepareErrorResponse(413), (false));
 	resolvedFilePath = resolveFilePath(config);
 	if (resolvedFilePath.empty())
