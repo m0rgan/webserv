@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ServerLauncher.hpp                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/21 17:00:42 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/21 17:00:42 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/31 19:36:27 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,13 +17,14 @@
 #include <map>
 #include <iostream>
 #include <signal.h>
-#include "Server.hpp"
 #include "Client.hpp"
 #include "ConfigFile.hpp"
 #include "EPoll.hpp"
+#include "SessionManagement.hpp"
 
 #define DEFAULT_CONFIG "default.conf"
 
+class Server;
 class ServerLauncher
 {
 	private:
@@ -32,21 +33,24 @@ class ServerLauncher
 		EPoll					_epoll;
 		SessionManagement		_sessionManager;
 
-		void newClient(int serverFd);
-		void existingClient(int clientFd);
-		void closeClient(int clientFd);
-		Server* serverSelector(const HTTPRequest &http);
-
-		ServerLauncher(ServerLauncher const &src);
 		ServerLauncher &operator=(ServerLauncher const &rhs);
-		void initServers(const std::string &configFile);
-		void loop();
+		ServerLauncher(ServerLauncher const &src);
+
+		void	newClient(int serverFd);
+		void	existingClient(int clientFd);
+		void	removeClient(int clientFd);
+		Server*	serverSelector(const HTTPRequest &http);
+
+		
 	public:
 		ServerLauncher(void);
 		~ServerLauncher(void);
 
-		ServerLauncher(const std::string &configFile);
-		void stopServers();
+		void	initServers(const std::string &configFile);
+		void	loop();
+		void	cleanupChild();
 };
+
+#include "Server.hpp"
 
 #endif

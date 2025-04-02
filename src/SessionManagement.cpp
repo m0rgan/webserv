@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   SessionManagement.cpp                              :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/20 16:42:03 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/20 16:42:03 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/31 15:30:17 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,8 +28,11 @@ SessionManagement &SessionManagement::operator=(SessionManagement const &rhs)
 		_sessions = rhs._sessions;;
 	return (*this);
 }
-
-SessionManagement::~SessionManagement(void) {}
+#include <iostream>
+SessionManagement::~SessionManagement(void)
+{
+	_sessions.clear();
+}
 
 std::string SessionManagement::generateSessionID(void)
 {

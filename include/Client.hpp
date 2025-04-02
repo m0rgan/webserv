@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Client.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 16:55:28 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 15:37:59 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/01 17:27:56 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,6 +23,7 @@
 #include <ErrorPage.hpp>
 #include <SessionManagement.hpp>
 #include <Cookies.hpp>
+#include <ServerLauncher.hpp>
 
 #include <sstream>
 #include <fstream>
@@ -49,7 +50,6 @@ class Client
 		void	handleGET(HTTPRequest *http);
 		void	handlePOST(HTTPRequest *http);
 		void	handleDELETE(HTTPRequest *http);
-		void	closeClient();
 		bool	lengthData(HTTPRequest &http);
 		bool	chunkedData(HTTPRequest &http);
 		bool	routeToCGI(std::string requestURI);
@@ -66,11 +66,10 @@ class Client
 		
 		Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager);
 		HTTPRequest readRequest();
-		void handleRequest(HTTPRequest &http);
+		void handleRequest(HTTPRequest &http, ServerLauncher* server);
 		bool hasPendingData() const;
 		void writeResponse();
 		
-		int getSocket() const;
 		bool keepAlive() const;
 		
 		const ConfigFileServer& getConfigFileServer() const;

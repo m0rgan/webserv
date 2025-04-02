@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ErrorPage.cpp                                      :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/28 19:28:29 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/02/28 19:28:29 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/01 17:45:54 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 

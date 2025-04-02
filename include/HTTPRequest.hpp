@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   HTTPRequest.hpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 11:08:29 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/25 19:49:23 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/01 14:39:35 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,21 +25,12 @@
 
 class Client;
 
-struct HttpRequest
-{
-	std::string method;
-	std::string uri;
-	std::string httpVersion;
-	std::map<std::string, std::string> headers;
-	std::string body;
-	size_t	contentLength;
-};
-
 class HTTPRequest
 {
 	private:
 		std::string	_host;
 		int			_port;
+		
 
 	public:
 		HTTPRequest(void);
@@ -47,7 +38,12 @@ class HTTPRequest
 		HTTPRequest operator=(HTTPRequest const &rhs);
 		~HTTPRequest(void);
 		
-		HttpRequest	request;
+		std::string method;
+		std::string uri;
+		std::string httpVersion;
+		std::map<std::string, std::string> headers;
+		std::string body;
+		size_t	contentLength;
 		std::string	resolvedFilePath;
 		void parserHeaders(const std::string &rawRequest);
 		void parserBody(const std::string &rawRequest);

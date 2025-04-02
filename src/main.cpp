@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/03 15:02:32 by migumore          #+#    #+#             */
-/*   Updated: 2025/02/05 18:13:18 by migumore         ###   ########.fr       */
+/*   Updated: 2025/03/26 16:30:41 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,9 +18,11 @@ int main(int argc, char *argv[])
 		return (std::cerr << "How to use: ./webserv <config_file>" << std::endl, 1);
 	std::string configFile = (argc == 2) ? argv[1]: DEFAULT_CONFIG;
 
+	ServerLauncher webserv;
 	try
 	{
-		ServerLauncher webserv(configFile);
+		webserv.initServers(configFile);
+		webserv.loop();
 	}
 	catch (const std::exception &e)
 	{

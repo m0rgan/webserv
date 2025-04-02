@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ConfigFile.cpp                                     :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/05 13:00:30 by migumore          #+#    #+#             */
-/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/01 18:27:24 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -273,6 +273,13 @@ void ConfigFile::locationParseKeyValue(std::istringstream &lineStream, const std
 		std::string method;
 		while (lineStream >> method)
 			locationConfig.addAllowedMethod(method);
+	}
+	else if (key == "error_page")
+	{
+		int errorCode;
+		std::string pagePath;
+		lineStream >> errorCode >> pagePath;
+		locationConfig.addErrorPage(errorCode, pagePath);
 	}
 	else if (key == "client_max_body_size")
 	{

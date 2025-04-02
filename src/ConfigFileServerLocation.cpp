@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ConfigFileServerLocation.cpp                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/23 13:41:30 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 13:41:30 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/01 18:52:50 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -68,7 +68,7 @@ void ConfigFileServerLocation::addNestedLocation(const std::string &uri, const C
 const std::map<std::string, ConfigFileServerLocation> &ConfigFileServerLocation::getNestedLocations() const {return _nestedLocations; }
 void ConfigFileServerLocation::setAlias(const std::string &alias) { this->_alias = alias; }
 const std::string &ConfigFileServerLocation::getAlias() const { return this->_alias; }
-
+bool ConfigFileServerLocation::hasAlias() const { return !_alias.empty();}
 bool ConfigFileServerLocation::matchesURI(const std::string &requestURI) const
 {
 	if (_uri.empty())

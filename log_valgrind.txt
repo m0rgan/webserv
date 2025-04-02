@@ -1,0 +1,164 @@
+==4131053== Memcheck, a memory error detector
+==4131053== Copyright (C) 2002-2017, and GNU GPL'd, by Julian Seward et al.
+==4131053== Using Valgrind-3.18.1 and LibVEX; rerun with -h for copyright info
+==4131053== Command: ./webserv webserv.conf
+==4131053== 
+CONFIG FILE PRINT 
+Server 1:
+  Server Name: localhost
+  Host-Port Pairs: 0.0.0.0:8080, 127.0.0.1:8080, :::8080
+  Root: 
+  Error Pages: 
+  Index Files: 
+  Autoindex: on
+  Max Body Size: 1048576
+  Return Directives: 
+  Location: /
+  Root: /home/migumore/mmv/github/webserv/bonus/website/content
+  Index Files: index2.html index.php index.py 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1048576 bytes
+    Return Directives: 
+---------------------------
+  Location: /error
+  Root: 
+  Index Files: 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1 bytes
+    Return Directives: 500 -> 
+---------------------------
+  Location: /images
+  Root: 
+  Index Files: 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1048576 bytes
+    Return Directives: 
+---------------------------
+  Location: /php
+  Root: /var/www/bonus-website
+  Index Files: 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1 bytes
+    Return Directives: 
+---------------------------
+  Location: /redirme
+  Root: /hello_world
+  Index Files: 
+  Allowed Methods: POST DELETE 
+  Auto Index: Disabled
+  Max Body Size: 1 bytes
+    Return Directives: 301 -> /error
+---------------------------
+
+
+
+Server 2:
+  Server Name: server42.com
+  Host-Port Pairs: 0.0.0.0:8080
+  Root: 
+  Error Pages: 
+  Index Files: 
+  Autoindex: off
+  Max Body Size: 1048576
+  Return Directives: 
+  Location: /
+  Root: /var/www/bonus-website/15.png
+  Index Files: index.php 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1048576 bytes
+    Return Directives: 
+---------------------------
+
+
+
+Server 3:
+  Server Name: api.dosmyserver.com
+  Host-Port Pairs: 0.0.0.0:8080
+  Root: 
+  Error Pages: 
+  Index Files: 
+  Autoindex: off
+  Max Body Size: 1048576
+  Return Directives: 
+  Location: /
+  Root: /var/www/bonus-website/15.png
+  Index Files: index.php 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1048576 bytes
+    Return Directives: 
+---------------------------
+
+
+
+Server 4:
+  Server Name: DOMAINBONUS
+  Host-Port Pairs: 0.0.0.0:9090
+  Root: 
+  Error Pages: 404 -> /404.html
+  Index Files: 
+  Autoindex: off
+  Max Body Size: 1048576
+  Return Directives: 
+  Location: /
+  Root: /var/www/bonus-website
+  Index Files: index.html 
+  Allowed Methods: GET POST 
+  Auto Index: Disabled
+  Max Body Size: 1 bytes
+    Return Directives: 302 -> /error
+---------------------------
+  Location: /404.html
+  Root: /var/www/bonus-website
+  Index Files: 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1048576 bytes
+    Return Directives: 
+---------------------------
+  Location: /error
+  Root: /var/www/bonus-website
+  Index Files: error.html 
+  Allowed Methods: 
+  Auto Index: Disabled
+  Max Body Size: 1048576 bytes
+    Return Directives: 
+---------------------------
+
+
+
+[INFO] Launching server: localhost
+Server listening on 0.0.0.0:8080
+Server listening on 127.0.0.1:8080
+Server listening on :::8080
+[INFO] Launching server: server42.com
+Server listening on 0.0.0.0:8080
+[INFO] Launching server: api.dosmyserver.com
+Server listening on 0.0.0.0:8080
+[INFO] Launching server: DOMAINBONUS
+Server listening on 0.0.0.0:9090
+[35m[2025-04-01 15:17:08] HTTP/1.1 POST /index.php
+[0m[34m[2025-04-01 15:17:08] HTTP/1.1 200 OK
+[0m[32m[2025-04-01 15:17:08] HTTP/1.1 GET /index.php
+[0m[34m[2025-04-01 15:17:08] HTTP/1.1 200 OK
+[0m[38;5;214m[2025-04-01 15:17:12] HTTP/1.1 DELETE /index.php
+[0m[34m[2025-04-01 15:17:12] HTTP/1.1 200 OK
+[0m[32m[2025-04-01 15:17:12] HTTP/1.1 GET /index.php
+[0m[34m[2025-04-01 15:17:12] HTTP/1.1 200 OK
+[0m[SIGNAL] Caught signal 2 - Shutting down server
+==4131053== 
+==4131053== FILE DESCRIPTORS: 3 open (3 std) at exit.
+==4131053== 
+==4131053== HEAP SUMMARY:
+==4131053==     in use at exit: 0 bytes in 0 blocks
+==4131053==   total heap usage: 1,334 allocs, 1,334 frees, 356,727 bytes allocated
+==4131053== 
+==4131053== All heap blocks were freed -- no leaks are possible
+==4131053== 
+==4131053== For lists of detected and suppressed errors, rerun with: -s
+==4131053== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 11:57:53 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/26 16:51:54 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,30 +30,30 @@
 class Server
 {
 	private:
-		std::vector<std::pair <std::string, int> > 	_hostPort;
-		std::vector<pollfd> 						_fds;
+		std::vector<std::pair <std::string, int> > 	_hostPort; //hay que confirmar que el numero del puerto es valido
+		std::vector<int>	 						_fds;
 		struct protoent								*_proto;
 		ConfigFileServer							_currentConfig;
 		
 
 		int		createSocket(int family);
-		int		configureSocket(int serverSocket);
+		void	configureSocket(int serverSocket);
 		int		getAddressProtocol(const std::string &host);
-		int		bindAndListen(int serverSocket, const std::string &host, int port);
+		void	bindAndListen(int serverSocket, const std::string &host, int port);
 		void	addToFDList(int serverSocket);
 		
 		public:
 			Server(void);
+			Server(const ConfigFileServer &config);
 			Server(Server const &src);
 			Server &operator=(Server const &rhs);
 			~Server(void);
 			
-			Server(const ConfigFileServer &config);
-			int		acceptClient(int index);
-			const ConfigFileServer& getConfig() const;
-			int		sockets();
-			const std::vector<pollfd> &getSockets() const;
-			void addSocketsToEpoll(EPoll &epoll);
+			int							acceptClient(int index);
+			const ConfigFileServer&		getConfig() const;
+			void						sockets();
+			const std::vector<int>		&getSockets() const;
+			void 						addSocketsToEpoll(EPoll &epoll);
 };
 
 #endif

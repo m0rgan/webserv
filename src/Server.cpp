@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 12:02:13 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/03/26 16:52:14 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -62,42 +62,39 @@ int Server::getAddressProtocol(const std::string &host)
 	serverAddr.ai_family = AF_UNSPEC;
 	serverAddr.ai_socktype = SOCK_STREAM;
 	serverAddr.ai_flags = AI_PASSIVE;
-
+	
 	if (getaddrinfo(host.c_str(), NULL, &serverAddr, &list) != 0)
 	{
-		std::cerr << "getaddrinfo failed for " << host << std::endl;
-		return (-1); //change to throw?
+		throw std::runtime_error("getaddrinfo failed for: " + host);
 	}
-
+	
 	int protocol = list->ai_family;
 	freeaddrinfo(list);
 	return (protocol);
 }
 
 
-int Server::sockets()
+void Server::sockets()
 {
-	int serverSocket;
-	size_t i;
-
-	for (i = 0; i < _hostPort.size(); ++i)
+	try
 	{
-		const std::string &host = _hostPort[i].first;
-		int port = _hostPort[i].second;
-
-		int protocol = getAddressProtocol(host);
-		if (protocol == -1)
-			return (std::cerr << "[ERROR] getAddressProtocol fnct " << host << std::endl, 1);
-		serverSocket = createSocket(protocol);
-		if (serverSocket < 0)
-			return (std::cerr << "[ERROR] createSocket fnct" << std::endl, 1);
-		if (configureSocket(serverSocket))
-			return (std::cerr << "[ERROR] configureSocket fnct" << std::endl, 1);
-		if (bindAndListen(serverSocket, host, port))
-			return (std::cerr << "[ERROR] bindAndListen fnct " << host << ":" << port << std::endl, 1);
-		addToFDList(serverSocket);
+		for (size_t i = 0; i < _hostPort.size(); ++i)
+		{
+			const std::string &host = _hostPort[i].first;
+			int port = _hostPort[i].second;
+			int protocol = getAddressProtocol(host);
+			int serverSocket = createSocket(protocol);
+			configureSocket(serverSocket);
+			bindAndListen(serverSocket, host, port);
+			addToFDList(serverSocket);
+		}
 	}
-	return (0);
+	catch(const std::exception& e)
+	{
+		std::cerr << e.what() << '\n';
+		throw std::runtime_error("Sockets function fails");
+	}
+	
 }
 
 int Server::createSocket(int protocol)
@@ -112,17 +109,21 @@ int Server::createSocket(int protocol)
 // if ((_pollFds[i].revents & POLLERR) || _pollFds[i].revents & POLLHUP)
 //     _pruneSocket(sd, sS);
 
-int Server::configureSocket(int serverSocket)
+void Server::configureSocket(int serverSocket)
 {
-	int	opt; //change errors in function to be throw ??
+	int	opt = 1;
 
-	opt = 1;
 	if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) == -1)
-		return (std::cerr << "setsockopt: " << strerror(errno) << std::endl, close(serverSocket), 1);
+	{
+		close(serverSocket);
+		throw std::runtime_error(std::string("setsockopt: ") + strerror(errno));
+	}
 	if (fcntl(serverSocket, F_SETFL, O_NONBLOCK) == 1)
-		return (std::cerr << "fcntl: " << strerror(errno) << std::endl, close(serverSocket), 1);
+	{
+		close(serverSocket);
+		throw std::runtime_error(std::string("fcntl: ") + strerror(errno));
+	}
 	setCloexecFlag(serverSocket);
-	return (0);
 }
 
 std::string intToString(int number)
@@ -132,7 +133,7 @@ std::string intToString(int number)
 	return (oss.str());
 }
 
-int Server::bindAndListen(int serverSocket, const std::string &host, int port)
+void Server::bindAndListen(int serverSocket, const std::string &host, int port)
 {
 	struct addrinfo serverAddr = {};
 	struct addrinfo *list, *it;
@@ -153,12 +154,11 @@ int Server::bindAndListen(int serverSocket, const std::string &host, int port)
 	if (listen(serverSocket, SOMAXCONN) == -1)
 		throw std::runtime_error("listen failed: " + std::string(strerror(errno))); //close socket before throw?
 	std::cout << "Server listening on " << host << ":" << port << std::endl;
-	return 0;
 }
 
 void Server::addToFDList(int serverSocket)
 {
-	pollfd serverPollfd = {serverSocket, POLLIN, 0};
+	int serverPollfd = serverSocket;
 	_fds.push_back(serverPollfd);
 }
 
@@ -166,12 +166,12 @@ void Server::addSocketsToEpoll(EPoll &epollInstance)
 {
 	for (size_t i = 0; i < _fds.size(); ++i)
 	{
-		int serverFd = _fds[i].fd;
+		int serverFd = _fds[i];
 		epollInstance.addFD(serverFd, EPOLLIN);
 	}
 }
 
-const std::vector<pollfd> &Server::getSockets() const
+const std::vector<int> &Server::getSockets() const
 {
 	return (_fds);
 }

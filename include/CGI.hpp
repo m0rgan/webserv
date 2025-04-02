@@ -3,18 +3,20 @@
 /*                                                        :::      ::::::::   */
 /*   CGI.hpp                                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 10:46:11 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 13:52:59 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/01 13:26:45 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef CGI_HPP
 #define CGI_HPP
 
-#include "HTTPRequest.hpp"
-#include "Client.hpp"
+#include <HTTPRequest.hpp>
+#include <Client.hpp>
+
+
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -47,6 +49,8 @@ struct envCGI
 	std::string referer;
 };
 
+class ServerLauncher;
+
 class CGI
 {
 	private:
@@ -54,26 +58,28 @@ class CGI
 		std::vector<char *>			_argv;
 		std::vector<char *>			_env;
 		envCGI						_envBuffer;
+		ServerLauncher*				_serverLauncher;
 		ConfigFileServer			_currentConfig;
 		std::string					_cgiOutput;
 		std::string					_cgiHeaders;
 
 		void setup(const HTTPRequest &http);
 		void setupEnvironment(const HTTPRequest &http);
-		void childProcess(int socketPair[2]);
+		void childProcess(int socketPair[2], HTTPRequest *http);
 		void parentProcess(int socketPair[2], pid_t pid, HTTPRequest *http);
 		void extractHeadersCGIOutput(void);
 
 	public:
 		CGI(void);
+		CGI(ServerLauncher* serverLauncher, ConfigFileServer const &currentConfig);
 		CGI(CGI const &src);
 		CGI &operator=(CGI const &rhs);
 		~CGI(void);
 		
 		void execute(HTTPRequest *http);
-		CGI(ConfigFileServer const &currentConfig);
 		std::string const getOutput(void);
 		std::string const getHeaders(void);
 };
+#include <ServerLauncher.hpp>
 		
 #endif

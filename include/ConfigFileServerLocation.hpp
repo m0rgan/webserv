@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ConfigFileServerLocation.hpp                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/23 13:42:04 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/23 13:42:04 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/01 18:52:53 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -66,7 +66,7 @@ class ConfigFileServerLocation
 		const std::map<std::string, ConfigFileServerLocation> &getNestedLocations() const;
 		void setAlias(const std::string &alias);
 		const std::string &getAlias() const;
-
+		bool hasAlias() const;
 		bool matchesURI(const std::string &requestURI) const;
 
 		void printLocationConfig() const;

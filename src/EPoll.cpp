@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   EPoll.cpp                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/03 11:10:17 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/03 11:10:17 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/04/01 15:16:11 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,6 +24,8 @@ EPoll::EPoll() : _events(MAX_EVENTS)
 EPoll::~EPoll()
 {
 	close(_epollFd);
+	_events.clear();
+	_fdEvents.clear();
 }
 
 void EPoll::addFD(int fd, uint32_t events)
