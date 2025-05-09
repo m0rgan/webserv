@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ServerLauncher.cpp                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/21 17:01:19 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/04/01 17:30:05 by migumore         ###   ########.fr       */
+/*   Updated: 2025/05/09 13:05:44 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -173,6 +173,18 @@ void ServerLauncher::existingClient(int clientFd)
 	try
 	{
 		HTTPRequest http = client->readRequest();
+		if (http.method.empty() || http.uri.empty())
+		{
+			// std::cerr << "[DEBUG] Invalid request from client FD: " << clientFd << std::endl;
+			removeClient(clientFd);
+			return;
+		}
+
+		// std::cout << "[DEBUG] Client FD: " << clientFd << " - Request: " << http.uri << " Keep Alive: " << client->keepAlive() << std::endl;
+		// std::cout << "[DEBUG] Headers: " << std::endl;
+		// for (std::map<std::string, std::string>::const_iterator it = http.headers.begin(); it != http.headers.end(); ++it)
+		// 	std::cout << it->first << ": " << it->second << ", " << std::endl;
+		// std::cout << std::endl;
 
 		Server* server = serverSelector(http);
 		// if (server)

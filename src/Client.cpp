@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Client.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 17:00:36 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/04/02 15:19:55 by migumore         ###   ########.fr       */
+/*   Updated: 2025/05/09 12:43:23 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -52,6 +52,7 @@ HTTPRequest Client::readRequest()  //check return values to kill process??
 		{
 			buffer[bytesRead] = '\0';
 			_requestBuffer.append(buffer, bytesRead);
+			std::cout << "Request buffer: " << _requestBuffer << std::endl;
 
 			if (!headersRead && _requestBuffer.find("\r\n\r\n") != std::string::npos)
 			{

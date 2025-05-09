@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   HTTPResponse.cpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/28 19:21:07 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/04 14:04:56 by gabrielfern      ###   ########.fr       */
+/*   Updated: 2025/05/09 12:35:57 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 

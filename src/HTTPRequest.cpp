@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   HTTPRequest.cpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/03 14:58:18 by migumore          #+#    #+#             */
-/*   Updated: 2025/04/02 18:34:35 by migumore         ###   ########.fr       */
+/*   Updated: 2025/05/09 13:31:34 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -201,7 +201,7 @@ std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 
 const std::string& HTTPRequest::getHost() const {return _host;}
 int HTTPRequest::getPort() const {return _port;}
-
+// content length esta en cero causando que no funcione y max body en / esta reescribiendo el del server directive AQUIIIII
 size_t HTTPRequest::parseContentLength(std::string contentLengthStr)
 {
 	if (contentLengthStr.empty())
