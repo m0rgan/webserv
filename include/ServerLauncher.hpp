@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ServerLauncher.hpp                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/21 17:00:42 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/03/31 19:36:27 by migumore         ###   ########.fr       */
+/*   Updated: 2025/05/10 17:43:24 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,14 +24,24 @@
 
 #define DEFAULT_CONFIG "default.conf"
 
+class CGI;
+struct CGIProcess
+{
+    int			socketPair[2];
+    pid_t		pid;
+	HTTPRequest	*http;
+	CGI			*cgi;
+};
+
 class Server;
 class ServerLauncher
 {
 	private:
-		std::map<int, Server*>	_servers;
-		std::map<int, Client*>	_clients;
-		EPoll					_epoll;
-		SessionManagement		_sessionManager;
+		std::map<int, Server*>		_servers;
+		std::map<int, Client*>		_clients;
+		EPoll						_epoll;
+		SessionManagement			_sessionManager;
+		std::map<int, CGIProcess>	_cgiProcesses;
 
 		ServerLauncher &operator=(ServerLauncher const &rhs);
 		ServerLauncher(ServerLauncher const &src);
@@ -40,7 +50,6 @@ class ServerLauncher
 		void	existingClient(int clientFd);
 		void	removeClient(int clientFd);
 		Server*	serverSelector(const HTTPRequest &http);
-
 		
 	public:
 		ServerLauncher(void);
@@ -49,8 +58,11 @@ class ServerLauncher
 		void	initServers(const std::string &configFile);
 		void	loop();
 		void	cleanupChild();
+		EPoll	&getEpoll();
+		void	addCGIProcess(int socketPair[2], pid_t pid, HTTPRequest *http, CGI *cgi);
 };
 
 #include "Server.hpp"
+#include "CGI.hpp"
 
 #endif

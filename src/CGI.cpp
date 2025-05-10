@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   CGI.cpp                                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 10:46:00 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/04/01 15:19:56 by migumore         ###   ########.fr       */
+/*   Updated: 2025/05/10 17:37:38 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -187,6 +187,17 @@ void CGI::childProcess(int socketPair[2], HTTPRequest *http)
 void CGI::parentProcess(int socketPair[2], pid_t pid, HTTPRequest *http)
 {
 	close(socketPair[1]);
+	if (fcntl(socketPair[0], F_SETFL, O_NONBLOCK) == 1)
+	{
+		close(socketPair[0]);
+		throw std::runtime_error(std::string("fcntl: ") + strerror(errno));
+	}
+	_serverLauncher->addCGIProcess(socketPair, pid, http, this);
+	_serverLauncher->getEpoll().addFD(socketPair[0], EPOLLIN);
+}
+
+void CGI::handleCGIOutput(int socketPair[2], pid_t pid, HTTPRequest *http)
+{
 	if ((http->method == "POST" || http->method == "DELETE") && !http->body.empty())
 	{
 		ssize_t bytesWritten = write(socketPair[0], http->body.c_str(), http->body.size());

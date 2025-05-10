@@ -6,7 +6,7 @@
 /*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/21 17:01:19 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/05/09 13:05:44 by migumore         ###   ########.fr       */
+/*   Updated: 2025/05/10 17:40:28 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -106,38 +106,58 @@ void ServerLauncher::loop()
 		{
 			struct epoll_event epoll = _epoll.getEvent(i);
 			int fd = epoll.data.fd;
-
-			if (epoll.events & (EPOLLHUP | EPOLLERR)) //| EPOLLNVAL
+			if (_cgiProcesses.find(fd) != _cgiProcesses.end())
+            {
+                _cgiProcesses[fd].cgi->handleCGIOutput(_cgiProcesses[fd].socketPair, _cgiProcesses[fd].pid, _cgiProcesses[fd].http); // Handle CGI output
+            }
+			else
 			{
-				removeClient(fd);
-				continue;
-			}
-			if (epoll.events & EPOLLIN)
-			{
-				if (_servers.find(fd) != _servers.end())
-					newClient(fd);
-				else
-					existingClient(fd);
-			}
-			if (epoll.events & EPOLLOUT)
-			{
-				if (_clients.find(fd) != _clients.end())
+				if (epoll.events & (EPOLLHUP | EPOLLERR)) //| EPOLLNVAL
 				{
-					if (_clients[fd]->hasPendingData())
+					removeClient(fd);
+					continue;
+				}
+				if (epoll.events & EPOLLIN)
+				{
+					if (_servers.find(fd) != _servers.end())
+						newClient(fd);
+					else
+						existingClient(fd);
+				}
+				if (epoll.events & EPOLLOUT)
+				{
+					if (_clients.find(fd) != _clients.end())
 					{
-						_clients[fd]->writeResponse();
-						if (_clients[fd]->keepAlive())
+						if (_clients[fd]->hasPendingData())
 						{
-							// std::cerr << "[DEBUG] KEEP ALIVE client FD: " << fd << std::endl;
-							_epoll.modifyFD(fd, EPOLLIN);
+							_clients[fd]->writeResponse();
+							if (_clients[fd]->keepAlive())
+							{
+								// std::cerr << "[DEBUG] KEEP ALIVE client FD: " << fd << std::endl;
+								_epoll.modifyFD(fd, EPOLLIN);
+							}
+							else
+								removeClient(fd);
 						}
-						else
-							removeClient(fd);
 					}
 				}
 			}
 		}
 	}
+}
+
+EPoll &ServerLauncher::getEpoll()
+{ return _epoll; }
+
+void ServerLauncher::addCGIProcess(int socketPair[2], pid_t pid, HTTPRequest *http, CGI *cgi)
+{
+	CGIProcess cgiProcess;
+	cgiProcess.socketPair[0] = socketPair[0];
+	cgiProcess.socketPair[1] = socketPair[1];
+	cgiProcess.pid = pid;
+	cgiProcess.http = http;
+	cgiProcess.cgi = cgi;
+	_cgiProcesses[socketPair[0]] = cgiProcess;
 }
 
 // The event bitmasks in events and revents have the following bits:

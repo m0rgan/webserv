@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   CGI.hpp                                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 10:46:11 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/04/01 13:26:45 by migumore         ###   ########.fr       */
+/*   Updated: 2025/05/10 17:35:23 by migumore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -76,9 +76,11 @@ class CGI
 		CGI &operator=(CGI const &rhs);
 		~CGI(void);
 		
-		void execute(HTTPRequest *http);
-		std::string const getOutput(void);
-		std::string const getHeaders(void);
+		void				execute(HTTPRequest *http);
+		std::string const	getOutput(void);
+		std::string const	getHeaders(void);
+		void				handleCGIOutput(int socketPair[2], pid_t pid, HTTPRequest *http);
+
 };
 #include <ServerLauncher.hpp>
 		
