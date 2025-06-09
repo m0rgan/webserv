@@ -24,24 +24,16 @@
 
 #define DEFAULT_CONFIG "default.conf"
 
-class CGI;
-struct CGIProcess
-{
-    int			socketPair[2];
-    pid_t		pid;
-	HTTPRequest	*http;
-	CGI			*cgi;
-};
-
 class Server;
 class ServerLauncher
 {
 	private:
 		std::map<int, Server*>		_servers;
+		std::vector<Server*>		_serverConfigOrder;
 		std::map<int, Client*>		_clients;
 		EPoll						_epoll;
 		SessionManagement			_sessionManager;
-		std::map<int, CGIProcess>	_cgiProcesses;
+		std::map<int, int>			_cgiFDMap;
 
 		ServerLauncher &operator=(ServerLauncher const &rhs);
 		ServerLauncher(ServerLauncher const &src);
@@ -58,11 +50,11 @@ class ServerLauncher
 		void	initServers(const std::string &configFile);
 		void	loop();
 		void	cleanupChild();
+		void	registerCGIFD(int fd, int clientFd);
 		EPoll	&getEpoll();
-		void	addCGIProcess(int socketPair[2], pid_t pid, HTTPRequest *http, CGI *cgi);
+		void	removeCGIFD(int fd);
 };
 
 #include "Server.hpp"
-#include "CGI.hpp"
 
 #endif

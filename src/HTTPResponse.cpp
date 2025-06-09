@@ -254,10 +254,12 @@ std::string HTTPResponse::directoryList(const std::string &directoryPath, const 
 void HTTPResponse::logResponse(const std::string &timestamp) const
 {
 	std::cout << BLUE << "[" << timestamp << "] ";
-	std::cout << _protocol << " " << _statusLine.first << " " << _statusLine.second << std::endl;
+	std::cout << _protocol << " " << _statusLine.first << " " << _statusLine.second;
+	std::cout << RESET << std::endl;
+
 	// for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
 	// 	std::cout << it->first << ": " << it->second << std::endl;
 	// if (!_body.empty())
 	// 	std::cout << std::endl << _body << std::endl;
-	std::cout << RESET;
+	// std::cout << RESET;
 }

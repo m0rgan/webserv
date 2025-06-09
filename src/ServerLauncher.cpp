@@ -88,6 +88,8 @@ void ServerLauncher::initServers(const std::string &configFile)
 			const std::vector<int> &serverSockets = server->getSockets();
 			for (size_t j = 0; j < serverSockets.size(); ++j)
 				_servers[serverSockets[j]] = server;
+
+			_serverConfigOrder.push_back(server); 
 		}
 		catch (const std::exception &e)
 		{
@@ -97,48 +99,76 @@ void ServerLauncher::initServers(const std::string &configFile)
 	}
 }
 
+EPoll &ServerLauncher::getEpoll() { return _epoll; }
+
 void ServerLauncher::loop()
 {
+	// std::cout << "[LOOP] Entering main server loop..." << std::endl;
 	for (;;)
 	{
+		for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+			Client* client = it->second;
+			if (client->getCGI() && std::time(NULL) - client->getCGITime() > 35) {
+				// std::cerr << "[TIMEOUT] CGI took too long\n";
+				client->cleanupCGIState(504);
+				removeClient(client->getSocket());
+			}
+		}
+
 		int epollEvents = _epoll.wait();
+
 		for (int i = 0; i < epollEvents; ++i)
 		{
 			struct epoll_event epoll = _epoll.getEvent(i);
 			int fd = epoll.data.fd;
-			if (_cgiProcesses.find(fd) != _cgiProcesses.end())
-            {
-                _cgiProcesses[fd].cgi->handleCGIOutput(_cgiProcesses[fd].socketPair, _cgiProcesses[fd].pid, _cgiProcesses[fd].http); // Handle CGI output
-            }
-			else
+
+			if (epoll.events & (EPOLLERR)) //| EPOLLNVAL EPOLLHUP | 
 			{
-				if (epoll.events & (EPOLLHUP | EPOLLERR)) //| EPOLLNVAL
+				if (_cgiFDMap.find(fd) != _cgiFDMap.end())
 				{
-					removeClient(fd);
-					continue;
+					// std::cout << "[LOOP] CGI ERROR ON FD: " << fd << std::endl;
+					int clientFd = _cgiFDMap[fd];
+					Client* client = _clients[clientFd];
+					if (client)
+						client->cleanupCGIState(500);
+					removeClient(clientFd);
 				}
-				if (epoll.events & EPOLLIN)
+				continue;
+			}
+			if (epoll.events & (EPOLLIN | EPOLLHUP))
+			{
+				if (_servers.find(fd) != _servers.end())
 				{
-					if (_servers.find(fd) != _servers.end())
-						newClient(fd);
-					else
-						existingClient(fd);
+					// std::cout << "[LOOP] New client connection on server FD: " << fd << std::endl;
+					newClient(fd);
 				}
-				if (epoll.events & EPOLLOUT)
+				else if (_cgiFDMap.find(fd) != _cgiFDMap.end())
 				{
-					if (_clients.find(fd) != _clients.end())
+					// std::cout << "[LOOP] CGI output ready on FD: " << fd << std::endl;
+					int clientFd = _cgiFDMap[fd];
+					Client* client = _clients[clientFd];
+					if (client)
+						client->handleCGIOutput(fd);
+				}
+				else if (_clients.find(fd) != _clients.end())
+				{
+					existingClient(fd);
+				}
+			}
+			if (epoll.events & EPOLLOUT)
+			{
+				if (_clients.find(fd) != _clients.end())
+				{
+					// std::cout << "[LOOP] Ready to write to client FD: " << fd << std::endl;
+					if (_clients[fd]->hasPendingData())
 					{
-						if (_clients[fd]->hasPendingData())
+						_clients[fd]->writeResponse();
+						if (_clients[fd]->keepAlive())
 						{
-							_clients[fd]->writeResponse();
-							if (_clients[fd]->keepAlive())
-							{
-								// std::cerr << "[DEBUG] KEEP ALIVE client FD: " << fd << std::endl;
-								_epoll.modifyFD(fd, EPOLLIN);
-							}
-							else
-								removeClient(fd);
+							_epoll.modifyFD(fd, EPOLLIN);
 						}
+						else
+							removeClient(fd);
 					}
 				}
 			}
@@ -146,18 +176,14 @@ void ServerLauncher::loop()
 	}
 }
 
-EPoll &ServerLauncher::getEpoll()
-{ return _epoll; }
-
-void ServerLauncher::addCGIProcess(int socketPair[2], pid_t pid, HTTPRequest *http, CGI *cgi)
+void ServerLauncher::registerCGIFD(int cgiFD, int clientFD)
 {
-	CGIProcess cgiProcess;
-	cgiProcess.socketPair[0] = socketPair[0];
-	cgiProcess.socketPair[1] = socketPair[1];
-	cgiProcess.pid = pid;
-	cgiProcess.http = http;
-	cgiProcess.cgi = cgi;
-	_cgiProcesses[socketPair[0]] = cgiProcess;
+	_epoll.addFD(cgiFD, EPOLLIN);
+	_cgiFDMap[cgiFD] = clientFD;
+}
+
+void ServerLauncher::removeCGIFD(int fd) {
+	_cgiFDMap.erase(fd);
 }
 
 // The event bitmasks in events and revents have the following bits:
@@ -179,7 +205,7 @@ void ServerLauncher::newClient(int serverFd)
 	{
 		setCloexecFlag(clientFd);
 		_epoll.addFD(clientFd, EPOLLIN | EPOLLOUT);
-		_clients[clientFd] = new Client(clientFd, server->getConfig(), _sessionManager);
+		_clients[clientFd] = new Client(clientFd, server->getConfig(), _sessionManager, this);
 		// std::cerr << "[DEBUG] NEW client FD: " << clientFd << std::endl;
 	}
 }
@@ -189,35 +215,25 @@ void ServerLauncher::existingClient(int clientFd)
 	Client* client = _clients[clientFd];
 
 	if (!client)
-		return;
+	return;
+	// std::cout << "[CLIENT] Handling existing client FD: " << clientFd << std::endl;
+	HTTPRequest* http = NULL;
 	try
 	{
-		HTTPRequest http = client->readRequest();
-		if (http.method.empty() || http.uri.empty())
+		http = client->readRequest();
+		if (!http || http->method.empty() || http->uri.empty())
 		{
-			// std::cerr << "[DEBUG] Invalid request from client FD: " << clientFd << std::endl;
+			delete http;
 			removeClient(clientFd);
 			return;
 		}
-
-		// std::cout << "[DEBUG] Client FD: " << clientFd << " - Request: " << http.uri << " Keep Alive: " << client->keepAlive() << std::endl;
-		// std::cout << "[DEBUG] Headers: " << std::endl;
-		// for (std::map<std::string, std::string>::const_iterator it = http.headers.begin(); it != http.headers.end(); ++it)
-		// 	std::cout << it->first << ": " << it->second << ", " << std::endl;
-		// std::cout << std::endl;
-
-		Server* server = serverSelector(http);
-		// if (server)
-		// {
-		//     std::cout << "[DEBUG] Server name: " << server->getConfig().getServerName() << std::endl;
-		//     std::cout << "[DEBUG] Client server name: " << client->getConfigFileServer().getServerName() << std::endl;
-		// }
+		Server* server = serverSelector(*http);
 		if (server && server->getConfig().getServerName() != client->getConfigFileServer().getServerName())
 		{
 			// std::cout << "[DEBUG] Changing server config for client FD: " << clientFd << std::endl;
 			client->setConfigFileServer(server->getConfig());
 		}
-		client->handleRequest(http, this);
+		client->handleRequest(http);
 		if (client->hasPendingData())
 			_epoll.modifyFD(clientFd, EPOLLOUT);
 		else
@@ -225,7 +241,9 @@ void ServerLauncher::existingClient(int clientFd)
 	}
 	catch (const std::exception &e)
 	{
-		//std::cerr << "[ERROR] Client error: " << e.what() << std::endl;
+		// std::cerr << "[ERROR] ServerLauncher::existingClient Client error: " << e.what() << std::endl;
+		if (http)
+			delete http;
 		removeClient(clientFd);
 	}
 }
@@ -241,27 +259,35 @@ Server* ServerLauncher::serverSelector(const HTTPRequest &http)
 	std::string host = http.getHost();
 	int port = http.getPort();
 
+	if (host == "localhost")
+		host = "127.0.0.1";
+	// MUST ADD LOGIC TO STREAMLINE HOSTNAME RESOLUTION 
+
+	Server* fallback = NULL;
+
 	// std::cout << "[DEBUG] Looking for server for host: " << host << " and port: " << port << std::endl;
-	for (std::map<int, Server*>::iterator it = _servers.begin(); it != _servers.end(); ++it)
+	for (std::vector<Server*>::iterator it = _serverConfigOrder.begin(); it != _serverConfigOrder.end(); ++it)
 	{
-		const ConfigFileServer& config = it->second->getConfig();
+		const ConfigFileServer& config = (*it)->getConfig();
 		const std::vector<std::pair<std::string, int> >& hostPorts = config.getHostPort();
 		for (size_t i = 0; i < hostPorts.size(); ++i)
 		{
 			if (hostPorts[i].first == host && hostPorts[i].second == port)
 			{
 				// std::cout << "[DEBUG] Found server for host: " << host << " and port: " << port << std::endl;
-				return (it->second);
+				return (*it);
 			}
+			if (!fallback && hostPorts[i].second == port)
+				fallback = *it;
 		}
 	}
 	// std::cout << "[DEBUG] No server found for host: " << host << " and port: " << port << std::endl;
-	return (NULL);
+	return (fallback);
 }
 
 void ServerLauncher::removeClient(int clientFd)
 {
-	// std::cerr << "[DEBUG] Attempting to remove client FD: " << clientFd << std::endl;
+	// std::cerr << "[DEBUG] ServerLauncher::removeClient remove client FD: " << clientFd << std::endl;
 	_epoll.removeFD(clientFd);
 	if (_clients.find(clientFd) != _clients.end())
 	{

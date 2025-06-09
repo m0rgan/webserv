@@ -5,7 +5,12 @@ print("Content-Type: text/html")
 print()  # Required blank line after headers
 
 print("Starting operation...")
-time.sleep(1000000)
+i = 1
+while i < 5:
+  time.sleep(1)
+  print(i)
+  i += 1
+
 print("Operation completed")
 
 # #!/usr/bin/python3

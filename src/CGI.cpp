@@ -12,9 +12,9 @@
 
 #include "CGI.hpp"
 
-CGI::CGI(void) : _serverLauncher(NULL){};
+CGI::CGI(void) : _serverLauncher(NULL), _done(false), _sentBody(false) {};
 
-CGI::CGI(ServerLauncher* serverLauncher, ConfigFileServer const &currentConfig) : _serverLauncher(serverLauncher), _currentConfig(currentConfig) {}
+CGI::CGI(ServerLauncher* serverLauncher, ConfigFileServer const &currentConfig) : _serverLauncher(serverLauncher), _currentConfig(currentConfig), _done(false), _sentBody(false) {}
 
 CGI::CGI(CGI const &src)
 {
@@ -32,6 +32,8 @@ CGI &CGI::operator=(CGI const &rhs)
 		this->_currentConfig = rhs._currentConfig;
 		this->_cgiOutput = rhs._cgiOutput;
 		this->_cgiHeaders = rhs._cgiHeaders;
+		this->_sentBody = rhs._sentBody;
+		this->_done = rhs._done;
 	}
 	return (*this);
 };
@@ -125,13 +127,11 @@ void CGI::setup(const HTTPRequest &http)
 	_argv.push_back(NULL);
 }
 
-void CGI::execute(HTTPRequest *http)
+void CGI::execute(HTTPRequest *http, int socketPair[2])
 {
 	_fullPath = http->resolveFilePath(_currentConfig); // ya se hizo anteriormente, validar si se puede borrar
 	setup(*http);
-	int socketPair[2];
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, socketPair) < 0)
-		throw std::runtime_error("[ERROR] Unable to create socket pair");
+
 	(setCloexecFlag(socketPair[0]), setCloexecFlag(socketPair[1]));
 	pid_t pid = fork();
 	if (pid < 0)
@@ -142,97 +142,99 @@ void CGI::execute(HTTPRequest *http)
 	if (pid == 0)
 		childProcess(socketPair, http);
 	else
-		parentProcess(socketPair, pid, http);
+	{
+		close(socketPair[1]);
+		if (fcntl(socketPair[0], F_SETFL, O_NONBLOCK) == -1)
+		{
+			close(socketPair[0]);
+			throw std::runtime_error(std::string("fcntl: ") + strerror(errno));
+		}
+	}
 		
 };
 
 void CGI::childProcess(int socketPair[2], HTTPRequest *http)
 {
+	// std::cerr << "[DEBUG] childProcess - " << _fullPath << std::endl;
 	close(socketPair[0]);
 	size_t pos = _fullPath.find_last_of('/');
 	if (pos != std::string::npos)
 	{
 		std::string dirPath = _fullPath.substr(0, pos); //cambiar argv[0] a solo el archivo, tiene el path completo.
+		// std::cerr << "[DEBUG] chdir issue - " << dirPath << std::endl;
 		if (chdir(dirPath.c_str()) == -1)
 			(close(socketPair[1]), std::exit(1));
 	}
-	int log_fd = open("/home/migumore/mmv/github/webserv/cgi_errors.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
-	if (log_fd == -1)
-		log_fd = open("/dev/null", O_WRONLY);
-	if (dup2(socketPair[1], STDIN_FILENO) == -1 || dup2(socketPair[1], STDOUT_FILENO) == -1 || dup2(log_fd, STDERR_FILENO) == -1)
+	if (dup2(socketPair[1], STDIN_FILENO) == -1 || dup2(socketPair[1], STDOUT_FILENO) == -1 || dup2(socketPair[1], STDERR_FILENO) == -1)
 	{	
-		(close(socketPair[1]), close(log_fd));
-		http->~HTTPRequest();
+		// std::cerr << "[DEBUG] dup2 issue" << std::endl;
+		(close(socketPair[1]));//, close(log_fd)
+		// http->~HTTPRequest();
 		_serverLauncher->cleanupChild();
-		this->~CGI();
+		// this->~CGI();
 		std::exit(1);
 	}
-	(close(socketPair[1]), close(log_fd));
+	(close(socketPair[1])); //, close(log_fd)
 	if (access(_argv[0], F_OK | R_OK | X_OK) == -1)
 	{
-		http->~HTTPRequest();
+		// std::cerr << "[DEBUG] access issue" << std::endl;
+		// http->~HTTPRequest();
 		_serverLauncher->cleanupChild();
-		this->~CGI();
+		// this->~CGI();
 		std::exit(1);
 	}
 
+	// std::cerr << "[DEBUG] before execve" << std::endl;
 	execve(_argv[0], _argv.data(), _env.data());
+	// std::cerr << "[DEBUG] after execve" << std::endl;
 	_serverLauncher->cleanupChild();
 	http->~HTTPRequest();
-	std::cerr << ""<<http->headers[0] << std::endl;
+	std::cerr << "" <<http->headers[0] << std::endl;
 	this->~CGI();
 	std::exit(1);
 }
 
-void CGI::parentProcess(int socketPair[2], pid_t pid, HTTPRequest *http)
+void CGI::handleCGIOutput(int fd, HTTPRequest *http)
 {
-	close(socketPair[1]);
-	if (fcntl(socketPair[0], F_SETFL, O_NONBLOCK) == 1)
+	
+	// std::cerr << "[DEBUG] CGI ---- handleCGIOutput" << std::endl;
+	// std::cerr << "[DEBUG] method=[" << http->method << "], body.empty=" << http->body.empty() << ", sent=" << _sentBody << std::endl;
+	if ((http->method == "POST" || http->method == "DELETE") && !http->body.empty() && !_sentBody)
 	{
-		close(socketPair[0]);
-		throw std::runtime_error(std::string("fcntl: ") + strerror(errno));
-	}
-	_serverLauncher->addCGIProcess(socketPair, pid, http, this);
-	_serverLauncher->getEpoll().addFD(socketPair[0], EPOLLIN);
-}
-
-void CGI::handleCGIOutput(int socketPair[2], pid_t pid, HTTPRequest *http)
-{
-	if ((http->method == "POST" || http->method == "DELETE") && !http->body.empty())
-	{
-		ssize_t bytesWritten = write(socketPair[0], http->body.c_str(), http->body.size());
+		ssize_t bytesWritten = write(fd, http->body.c_str(), http->body.size());
 		if (bytesWritten < 0)
 		{
-			close(socketPair[1]);
 			throw std::runtime_error("[ERROR] Writing to CGI process failed");
 		}
+		_sentBody = true;
 	}
 
-	// does this make sense since its dechunked? --if no Content-Length header read until EOF
 	char buffer[4096];
-	ssize_t bytesRead;
-	while ((bytesRead = read(socketPair[0], buffer, sizeof(buffer))) > 0)
+	ssize_t bytesRead = read(fd, buffer, sizeof(buffer));
+
+	if (bytesRead > 0)
+	{
 		_cgiOutput.append(buffer, bytesRead);
-	if (bytesRead < 0)
-	{
-		close(socketPair[0]);
-		throw std::runtime_error("[ERROR] Failed to read CGI process");
+		// std::cerr << "[DEBUG]  cgioutput: " << _cgiOutput << " is cgi done true " << _done << std::endl;
 	}
-	close(socketPair[0]);
-	int status;
-	if (waitpid(pid, &status, 0) == -1)
-		throw std::runtime_error("[ERROR] Failed to wait CGI process");
-	if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+	else if (bytesRead == 0)
 	{
-		// std::cerr << "ERROR@@@@@@@@@" <<WIFEXITED(status) << " - " << WEXITSTATUS(status) << std::endl;
-		throw std::runtime_error("[ERROR] CGI script exited with error status"); //+ std::to_string(WEXITSTATUS(status)
+		if (_cgiOutput.empty())
+		{
+			_done = true;
+			throw std::runtime_error("[ERROR] Invalid CGI output (empty)");
+		}
+
+		extractHeadersCGIOutput();
+		_done = true;
 	}
-	else if (WIFSIGNALED(status))
-		throw std::runtime_error("[ERROR] CGI script terminated by signal"); //+ std::to_string(WTERMSIG(status)
-	if (_cgiOutput.empty())
-		throw std::runtime_error("[ERROR] Invalid CGI output");
-	extractHeadersCGIOutput();
+	else if (bytesRead < 0)
+	{
+		return;
+	}
 }
+
+bool CGI::isComplete() const { return _done; }
 
 void CGI::extractHeadersCGIOutput(void)
 {

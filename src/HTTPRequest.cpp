@@ -303,7 +303,7 @@ bool HTTPRequest::validateRequest(const ConfigFileServer &config, Client &client
 		return (false);
 	if (matchedLocation && !isMethodAllowed(matchedLocation))
 		return (client.prepareErrorResponse(405), (false));
-	std::cerr << contentLength << "-"<<  config.getRoot() <<"----------"<<  matchedLocation->getURI() << "-"<<  matchedLocation->getMaxBodySize() << std::endl;
+	// std::cerr << "HTTPRequest::validateRequest " << contentLength << "-"<<  config.getRoot() <<"----------"<<  matchedLocation->getURI() << "-"<<  matchedLocation->getMaxBodySize() << std::endl;
 	if (contentLength > matchedLocation->getMaxBodySize())
 		return (client.prepareErrorResponse(413), (false));
 	resolvedFilePath = resolveFilePath(config);
@@ -323,10 +323,12 @@ void HTTPRequest::logRequest(const std::string timestamp) const
 	else if (method == "DELETE")
 		color = ORANGE;
 	std::cout << color << "[" << timestamp << "] ";
-	std::cout << httpVersion << " " << method << " " << uri << std::endl;
+	std::cout << httpVersion << " " << method << " " << uri;
+	std::cout << RESET << std::endl;
+
 	// for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
 	// 	std::cout << it->first << ": " << it->second << std::endl;
 	// if (!body.empty())
 	// 	std::cout << std::endl << body << std::endl;
-	std::cout << RESET;
+	// std::cout << RESET;
 }

@@ -66,8 +66,10 @@ class CGI
 		void setup(const HTTPRequest &http);
 		void setupEnvironment(const HTTPRequest &http);
 		void childProcess(int socketPair[2], HTTPRequest *http);
-		void parentProcess(int socketPair[2], pid_t pid, HTTPRequest *http);
 		void extractHeadersCGIOutput(void);
+
+		bool _done;
+		bool _sentBody;
 
 	public:
 		CGI(void);
@@ -76,11 +78,11 @@ class CGI
 		CGI &operator=(CGI const &rhs);
 		~CGI(void);
 		
-		void				execute(HTTPRequest *http);
+		void 				execute(HTTPRequest *http, int socketPair[2]);
 		std::string const	getOutput(void);
 		std::string const	getHeaders(void);
-		void				handleCGIOutput(int socketPair[2], pid_t pid, HTTPRequest *http);
-
+		void 				handleCGIOutput(int fd, HTTPRequest *http);
+		bool 				isComplete() const;
 };
 #include <ServerLauncher.hpp>
 		

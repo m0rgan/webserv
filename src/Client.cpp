@@ -3,44 +3,95 @@
 /*                                                        :::      ::::::::   */
 /*   Client.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
+/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/15 17:00:36 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/05/09 12:43:23 by migumore         ###   ########.fr       */
+/*   Updated: 2025/06/07 16:55:31 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Client.hpp"
 
-Client::Client(void) : _sessionManager(*(new SessionManagement())) {}
+Client::Client(void)
+	: _clientSocket(-1),
+	  _bytesSent(0),
+	  _currentConfig(ConfigFileServer()),
+	  _sessionManager(*(new SessionManagement())),
+	  _pendingRequest(NULL),
+	  _cgi(NULL),
+	  _cgiPipeFD(-1),
+	  _serverLauncher(NULL),
+	  _keepAlive(false)
+{}
 
-Client::Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager) : _clientSocket(socket), _bytesSent(0), _currentConfig(config), _sessionManager(sessionManager) { setCloexecFlag(_clientSocket); }
+Client::Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager, ServerLauncher* serverLauncher)
+	: _clientSocket(socket),
+	  _bytesSent(0),
+	  _currentConfig(config),
+	  _sessionManager(sessionManager),
+	  _pendingRequest(NULL),
+	  _cgi(NULL),
+	  _cgiPipeFD(-1),
+	  _serverLauncher(serverLauncher),
+	  _keepAlive(false),
+	  _requestBuffer(),
+	  _responseBuffer()
+{
+	setCloexecFlag(_clientSocket);
+}
 
-Client::Client(Client const &src) : _clientSocket(src._clientSocket), _requestBuffer(src._requestBuffer), _responseBuffer(src._responseBuffer), _bytesSent(src._bytesSent), _currentConfig(src._currentConfig), _sessionManager(src._sessionManager) {}
+Client::Client(Client const &src)
+	: _clientSocket(src._clientSocket),
+	_bytesSent(src._bytesSent),
+	_currentConfig(src._currentConfig),
+	_sessionManager(src._sessionManager),
+	_pendingRequest(NULL),
+	_cgi(NULL),
+	_cgiPipeFD(-1),
+	_serverLauncher(src._serverLauncher),
+	_keepAlive(src._keepAlive),
+	_requestBuffer(src._requestBuffer),
+	_responseBuffer(src._responseBuffer)
+{}
 
 Client &Client::operator=(Client const &rhs)
 {
 	if (this != &rhs)
 	{
-		this->_clientSocket = rhs._clientSocket;
-		this->_requestBuffer = rhs._requestBuffer;
-		this->_responseBuffer = rhs._responseBuffer;
-		this->_bytesSent = rhs._bytesSent;
-		this->_currentConfig = rhs._currentConfig;
-		this->_keepAlive = rhs._keepAlive;
+		_clientSocket = rhs._clientSocket;
+		_bytesSent = rhs._bytesSent;
+		_currentConfig = rhs._currentConfig;
+		_pendingRequest = NULL;
+		_cgi = NULL;
+		_cgiPipeFD = -1;
+		_serverLauncher = rhs._serverLauncher;
+		_keepAlive = rhs._keepAlive;
+		_requestBuffer = rhs._requestBuffer;
+		_responseBuffer = rhs._responseBuffer;
 	}
-	return (*this);
+	return *this;
 }
 
-Client::~Client() {}
+Client::~Client()
+{
+	if (_cgi)
+		delete _cgi;
+	if (_pendingRequest)
+		delete _pendingRequest;
+}
+
+bool Client::isCGIFD(int fd) const {
+	return fd == _cgiPipeFD;
+}
+
 
 const ConfigFileServer& Client::getConfigFileServer() const { return _currentConfig; }
 void Client::setConfigFileServer(const ConfigFileServer &config) { _currentConfig = config; }
 bool Client::keepAlive() const { return (_keepAlive); }
 
-HTTPRequest Client::readRequest()  //check return values to kill process??
+HTTPRequest* Client::readRequest()
 {
-	HTTPRequest	http;
+	HTTPRequest* http = new HTTPRequest();
 	char		buffer[1024];
 	int			bytesRead;
 	bool		headersRead = false;
@@ -52,21 +103,21 @@ HTTPRequest Client::readRequest()  //check return values to kill process??
 		{
 			buffer[bytesRead] = '\0';
 			_requestBuffer.append(buffer, bytesRead);
-			std::cout << "Request buffer: " << _requestBuffer << std::endl;
 
 			if (!headersRead && _requestBuffer.find("\r\n\r\n") != std::string::npos)
 			{
 				headersRead = true;
 				try
 				{
-					http.parserHeaders(_requestBuffer);
+					http->parserHeaders(_requestBuffer);
 				}
 				catch (const std::runtime_error &e)
 				{
+					delete http;
 					prepareErrorResponse(400);
 					throw std::runtime_error("400 Bad Request");
 				}
-				if (http.contentLength == 0 && http.headers.find("Transfer-Encoding") == http.headers.end())
+				if (http->contentLength == 0 && http->headers.find("Transfer-Encoding") == http->headers.end())
 					break;
 			}
 			try
@@ -76,6 +127,7 @@ HTTPRequest Client::readRequest()  //check return values to kill process??
 			}
 			catch(const std::runtime_error &e)
 			{
+				delete http;
 				prepareErrorResponse(400);
 				throw std::runtime_error("400 Bad Request");
 			}
@@ -83,20 +135,22 @@ HTTPRequest Client::readRequest()  //check return values to kill process??
 		else if (bytesRead == 0)
 		{
 			_keepAlive = false;
+			delete http;
+			http = NULL;
 			break;
 		}
 		else
 			break;
 	}
-	if (http.headers.find("Connection") != http.headers.end() && http.headers["Connection"] == "close")
+	if (http && http->headers.find("Connection") != http->headers.end() && http->headers["Connection"] == "close")
 		_keepAlive = false;
 	return (http);
 }
 
-bool Client::chunkedData(HTTPRequest &http)
+bool Client::chunkedData(HTTPRequest *http)
 {
-	if (http.headers.find("Transfer-Encoding") != http.headers.end() &&
-		http.headers["Transfer-Encoding"] == "chunked")
+	if (http->headers.find("Transfer-Encoding") != http->headers.end() &&
+		http->headers["Transfer-Encoding"] == "chunked")
 	{
 		std::string body;
 		size_t headerEnd = _requestBuffer.find("\r\n\r\n") + 4;
@@ -115,8 +169,8 @@ bool Client::chunkedData(HTTPRequest &http)
 			body.append(_requestBuffer.substr(headerEnd, chunkSize));
 			headerEnd += chunkSize + 2;
 		}
-		http.body = body;
-		if (http.method == "POST" && http.body.empty())
+		http->body = body;
+		if (http->method == "POST" && http->body.empty())
 		{
 			throw std::runtime_error("400 Bad Request");
 		}
@@ -125,18 +179,18 @@ bool Client::chunkedData(HTTPRequest &http)
 	return (false);
 }
 
-bool Client::lengthData(HTTPRequest &http)
+bool Client::lengthData(HTTPRequest *http)
 {
-	if (http.contentLength == 0)
+	if (http->contentLength == 0)
 		return (true);
 
-	size_t contentLength = http.contentLength;
+	size_t contentLength = http->contentLength;
 	size_t headersEndPos = _requestBuffer.find("\r\n\r\n") + 4;
 	if (_requestBuffer.size() - headersEndPos >= contentLength)
 	{
 		try
 		{
-			http.parserBody(_requestBuffer.substr(headersEndPos, contentLength)); // everything read
+			http->parserBody(_requestBuffer.substr(headersEndPos, contentLength)); // everything read
 			return (true);
 		}
 		catch(const std::exception& e)
@@ -147,27 +201,33 @@ bool Client::lengthData(HTTPRequest &http)
 	return (false); //keep reading
 }
 
-void Client::handleRequest(HTTPRequest &http, ServerLauncher* server)
+void Client::handleRequest(HTTPRequest *http)
 {	
-	http.logRequest(getCurrentTimestamp());
+	http->logRequest(getCurrentTimestamp());
 
 	// DO WE NEED TO PARSE FOR VALID HOSTNAMES???? and for $ variables?
-	
-	if (!http.validateRequest(_currentConfig, *this))
+	if (!http->validateRequest(_currentConfig, *this))
 		return;
-	
 	handleCookies(http);
 	try 
 	{
-		if (routeToCGI(http.resolvedFilePath))
+		if (routeToCGI(http->resolvedFilePath))
 		{
-			CGI cgi(server, _currentConfig);
-			cgi.execute(&http);
-			std::string cgiHeaders = cgi.getHeaders();
-			std::string setCookieHeaders = _cookies.generateSetCookieHeader();
-			if (!setCookieHeaders.empty())
-				cgiHeaders += setCookieHeaders;
-			prepareResponse(200, "text/html", cgi.getOutput(), "", cgiHeaders);
+			int socketPair[2];
+			if (socketpair(AF_UNIX, SOCK_STREAM, 0, socketPair) < 0)
+			{
+				prepareErrorResponse(500);
+				return;
+			}
+			_cgi = new CGI(_serverLauncher, _currentConfig);
+			_cgi->execute(http, socketPair);
+			_cgiStartTime = std::time(NULL);
+			_pendingRequest = http;
+			_cgiPipeFD = socketPair[0];
+			setCloexecFlag(_cgiPipeFD);
+
+			_serverLauncher->registerCGIFD(_cgiPipeFD, _clientSocket);
+
 			return;
 		}
 	}
@@ -178,22 +238,22 @@ void Client::handleRequest(HTTPRequest &http, ServerLauncher* server)
 		prepareErrorResponse(500);
 		return;
 	}
-	if (http.method == "GET")
-		handleGET(&http);
-	else if (http.method == "POST")
-		handlePOST(&http);
-	else if (http.method == "DELETE")
-		handleDELETE(&http);
+	if (http->method == "GET")
+		handleGET(http);
+	else if (http->method == "POST")
+		handlePOST(http);
+	else if (http->method == "DELETE")
+		handleDELETE(http);
 	else
 		prepareErrorResponse(405);
 
 	resetState();
 }
 
-void Client::handleCookies(HTTPRequest &http)
+void Client::handleCookies(HTTPRequest *http)
 {
-	if (http.headers.find("Cookie") != http.headers.end())
-		_cookies.parse(http.headers["Cookie"]);
+	if (http->headers.find("Cookie") != http->headers.end())
+		_cookies.parse(http->headers["Cookie"]);
 	std::string sessionID = _cookies.getCookie("SESSIONID");
 	// std::cout << " FIRST " << sessionID << std::endl;
 	if (!sessionID.empty() && !_sessionManager.sessionExists(sessionID))
@@ -227,6 +287,83 @@ bool Client::routeToCGI(std::string requestURI)
 		return (true);
 	return (false);
 };
+
+void Client::handleCGIOutput(int fd)
+{
+	// std::cerr << "[CGI] Output on FD " << fd << " for client FD " << _clientSocket << std::endl;
+
+	if (_cgiPipeFD == -1 || fd != _cgiPipeFD || !_cgi || !_pendingRequest)
+		return;
+	
+	try {
+		_cgi->handleCGIOutput(fd, _pendingRequest);
+		if (_cgi->isComplete())
+		{
+			// std::cerr << "[CGI] complete" << std::endl;
+			// std::cerr << "[DEBUG] Removing FD " << fd << ", current use: CGI\n";
+			_cgiPipeFD = -1;
+			
+			prepareResponse(200, "text/html", _cgi->getOutput(), "", _cgi->getHeaders());
+
+			_serverLauncher->removeCGIFD(fd);
+			_serverLauncher->getEpoll().removeFD(fd); // cleanup epoll
+			close(fd);
+			delete _cgi;
+			_cgi = NULL;
+			delete _pendingRequest;
+			_pendingRequest = NULL;
+			_serverLauncher->getEpoll().modifyFD(_clientSocket, EPOLLOUT);
+		}
+	} catch (const std::exception &e) {
+		// std::cerr << "[CGI] catch exception: " << fd << " e- " << e.what() << std::endl;
+		if (_cgiPipeFD != -1) {
+			_cgiPipeFD = -1;
+			_serverLauncher->getEpoll().removeFD(fd);
+			_serverLauncher->removeCGIFD(fd);
+			close(fd);
+		}
+		if (_cgi) {
+			delete _cgi;
+			_cgi = NULL;
+		}
+		if (_pendingRequest) {
+			delete _pendingRequest;
+			_pendingRequest = NULL;
+		}
+		prepareErrorResponse(500);
+		_serverLauncher->getEpoll().modifyFD(_clientSocket, EPOLLOUT);
+	}
+}
+
+int Client::getSocket() {
+	return	_clientSocket;
+}
+CGI* Client::getCGI() {
+	return	_cgi;
+}
+time_t Client::getCGITime() {
+	return	_cgiStartTime;
+}
+void Client::cleanupCGIState(int errorCode) {
+	// std::cout << "Client::cleanupCGIState " << errorCode << std::endl;
+	prepareErrorResponse(errorCode);
+	writeResponse();
+	if (_cgiPipeFD != -1)
+	{
+		close(_cgiPipeFD);
+		_cgiPipeFD = -1;
+	}
+	if (_cgi)
+	{
+		delete _cgi;
+		_cgi = NULL;
+	}
+	if (_pendingRequest)
+	{
+		delete _pendingRequest;
+		_pendingRequest = NULL;
+	}
+}
 
 void Client::handleGET(HTTPRequest	*http)
 {

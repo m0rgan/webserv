@@ -17,13 +17,13 @@
 
 #include <HTTPRequest.hpp>
 #include <ConfigFileServer.hpp>
-#include <CGI.hpp>
+
 #include "Utilities.hpp"
 #include <HTTPResponse.hpp>
 #include <ErrorPage.hpp>
 #include <SessionManagement.hpp>
 #include <Cookies.hpp>
-#include <ServerLauncher.hpp>
+
 
 #include <sstream>
 #include <fstream>
@@ -37,26 +37,33 @@
 #include <sys/socket.h>
 #include <stdio.h> //errno
 
+class CGI;
+class ServerLauncher;
 class Client
 {
 	private:
 		int					_clientSocket;
-		std::string			_requestBuffer;
-		std::string			_responseBuffer;
 		ssize_t				_bytesSent;
 		ConfigFileServer	_currentConfig;
+		SessionManagement	&_sessionManager;
+		HTTPRequest*		_pendingRequest;
+		CGI*				_cgi;
+		int					_cgiPipeFD;
+		ServerLauncher*		_serverLauncher;
 		bool				_keepAlive;
+		std::string			_requestBuffer;
+		std::string			_responseBuffer;
+		time_t				_cgiStartTime;
 
 		void	handleGET(HTTPRequest *http);
 		void	handlePOST(HTTPRequest *http);
 		void	handleDELETE(HTTPRequest *http);
-		bool	lengthData(HTTPRequest &http);
-		bool	chunkedData(HTTPRequest &http);
+		bool	lengthData(HTTPRequest *http);
+		bool	chunkedData(HTTPRequest *http);
 		bool	routeToCGI(std::string requestURI);
 		
-		SessionManagement	&_sessionManager;
 		Cookies				_cookies;
-		void				handleCookies(HTTPRequest &http);
+		void				handleCookies(HTTPRequest *http);
 		
 	public:
 		Client(void);
@@ -64,9 +71,10 @@ class Client
 		Client &operator=(Client const &rhs);
 		~Client(void);
 		
-		Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager);
-		HTTPRequest readRequest();
-		void handleRequest(HTTPRequest &http, ServerLauncher* server);
+		// Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager);
+		Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager, ServerLauncher* serverLauncher);
+		HTTPRequest* readRequest();
+		void handleRequest(HTTPRequest *http);
 		bool hasPendingData() const;
 		void writeResponse();
 		
@@ -78,6 +86,17 @@ class Client
 		
 		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders);
 		void	prepareErrorResponse(int statusCode);
-	};
+
+		bool	isCGIFD(int fd) const;
+		void	handleCGIOutput(int fd);
+
+		void	cleanupCGIState(int errorCode);
+		int		getSocket();
+		CGI*	getCGI();
+		time_t	getCGITime();
+};
+
+#include <CGI.hpp>
+#include <ServerLauncher.hpp>
 
 #endif
