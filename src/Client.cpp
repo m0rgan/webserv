@@ -483,15 +483,47 @@ void Client::handlePOST(HTTPRequest *http)
 
 void Client::handleDELETE(HTTPRequest *http)
 {
-	std::string filePath = http->resolveFilePath(_currentConfig);
-	if (filePath.empty()) {
-		prepareErrorResponse(400);
-		return;
-	}
-	if (std::remove(filePath.c_str()) == 0)
-		prepareResponse(200, "text/plain", "File deleted successfully", "", "");
-	else
-		prepareErrorResponse(404);
+    std::string filePath = http->resolveFilePath(_currentConfig);
+
+    if (filePath.empty()) {
+        prepareErrorResponse(400);
+        return;
+    }
+
+    struct stat fileStat;
+    if (stat(filePath.c_str(), &fileStat) != 0) {
+        if (errno == ENOENT) {
+            prepareErrorResponse(404);
+        } else if (errno == EACCES) {
+            prepareErrorResponse(403);
+        } else {
+            prepareErrorResponse(500);
+        }
+        return;
+    }
+
+    if (!S_ISREG(fileStat.st_mode)) {
+        if (S_ISDIR(fileStat.st_mode)) {
+            prepareErrorResponse(409);
+        } else {
+            prepareErrorResponse(400);
+        }
+        return;
+    }
+
+    if (std::remove(filePath.c_str()) == 0) {
+        prepareResponse(200, "text/plain", "File deleted successfully", "", "");
+    } else {
+        if (errno == EACCES || errno == EPERM) {
+            prepareErrorResponse(403);
+        } else if (errno == ENOENT) {
+            prepareErrorResponse(404);
+        } else if (errno == EISDIR) {
+            prepareErrorResponse(409);
+        } else {
+            prepareErrorResponse(500);
+        }
+    }
 }
 
 void Client::prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirect = "", const std::string &additionalHeaders = "")
