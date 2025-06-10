@@ -45,8 +45,12 @@ class HTTPRequest
 		std::string body;
 		size_t	contentLength;
 		std::string	resolvedFilePath;
+
+		std::string path;
+		std::string query;
+		std::string fragment;
+	
 		void parserHeaders(const std::string &rawRequest);
-		void parserBody(const std::string &rawRequest);
 		std::string resolveFilePath(const ConfigFileServer &config) const;
 		size_t parseContentLength(std::string contentLengthStr);
 		void logRequest(const std::string timestamp) const;
@@ -59,6 +63,7 @@ class HTTPRequest
 		bool locationReturn(const ConfigFileServerLocation *location, Client &client) const;
 		const ConfigFileServerLocation* matchLocation(const ConfigFileServer &config) const;
 		bool validateRequest(const ConfigFileServer &config, Client &client);
+		void parseURI();
 };
 
 #include "Client.hpp"

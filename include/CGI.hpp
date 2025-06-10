@@ -81,7 +81,7 @@ class CGI
 		void 				execute(HTTPRequest *http, int socketPair[2]);
 		std::string const	getOutput(void);
 		std::string const	getHeaders(void);
-		void 				handleCGIOutput(int fd, HTTPRequest *http);
+		void 				readCGIOutput(int fd);
 		bool 				isComplete() const;
 };
 #include <ServerLauncher.hpp>

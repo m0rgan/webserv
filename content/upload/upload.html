@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Management</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f4f7f6;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .container {
+      background-color: #ffffff;
+      padding: 10px 10px;
+      border-radius: 4px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2em;
+    }
+
+    h2 {
+      color: #34495e;
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    form {
+      margin-bottom: 25px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 1em;
+      box-sizing: border-box;
+      transition: border-color 0.3s ease;
+    }
+
+    input[type="file"]:focus,
+    input[type="text"]:focus {
+      border-color: #007bff;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      align-self: flex-start; /* Align button to the start */
+    }
+
+    button:hover {
+      background-color: #0056b3;
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    #filePreview {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #e9ecef;
+      border-radius: 5px;
+      border: 1px solid #dee2e6;
+      text-align: center;
+      word-wrap: break-word; /* Ensure long filenames wrap */
+    }
+
+    #filePreview img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 15px;
+      border-radius: 5px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    #filePreview a {
+      color: #007bff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    #filePreview a:hover {
+      text-decoration: underline;
+    }
+
+    #deleteStatus {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8d7da; /* Light red for error/status */
+      color: #721c24; /* Dark red for text */
+      border: 1px solid #f5c6cb;
+      border-radius: 5px;
+      text-align: center;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px 25px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+      h2 {
+        font-size: 1.3em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Upload a File</h2>
+    <form action="/upload/" method="POST" enctype="multipart/form-data">
+      <input type="file" name="file" required>
+      <button type="submit">Upload File</button>
+    </form>
+  </div>
+
+  <div class="container">
+    <h2>Access Your Uploaded File</h2>
+    <form onsubmit="return fetchFile();">
+      <input type="text" id="filename" placeholder="Enter filename (e.g., mypic.png)" required>
+      <button type="submit">View File</button>
+    </form>
+    <div id="filePreview"></div>
+  </div>
+
+  <div class="container">
+    <h2>Delete an Uploaded File</h2>
+    <form onsubmit="return deleteFile();">
+      <input type="text" id="deleteFilename" placeholder="Enter filename to delete" required>
+      <button type="submit">Delete File</button>
+    </form>
+    <div id="deleteStatus"></div>
+  </div>
+
+  <script>
+    function fetchFile() {
+      const filename = document.getElementById('filename').value;
+      const url = `/upload/${encodeURIComponent(filename)}`;
+      const container = document.getElementById('filePreview');
+      container.innerHTML = `Attempting to fetch: <code>${filename}</code>`; // Improved message
+
+      const ext = filename.split('.').pop().toLowerCase();
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+        container.innerHTML += `<br><img src="${url}" alt="Preview of ${filename}">`; // Added alt attribute
+      } else {
+        container.innerHTML += `<br><p><a href="${url}" target="_blank" rel="noopener noreferrer">Download/View file</a></p>`; // Added rel attribute for security
+      }
+
+      return false;
+    }
+
+    function deleteFile() {
+      const filename = document.getElementById('deleteFilename').value;
+      const url = `/upload/${encodeURIComponent(filename)}`;
+      const statusContainer = document.getElementById('deleteStatus');
+      statusContainer.textContent = `Attempting to delete ${filename}...`; // Add a pending message
+      statusContainer.style.color = '#333'; // Reset color
+
+      fetch(url, { method: 'DELETE' })
+        .then(response => {
+          if (response.ok) {
+            statusContainer.textContent = `Successfully deleted: ${filename}`;
+            statusContainer.style.backgroundColor = '#d4edda'; // Light green for success
+            statusContainer.style.color = '#155724'; // Dark green for success text
+          } else {
+            statusContainer.textContent = `Failed to delete ${filename}. Status: ${response.status} - ${response.statusText || 'Unknown Error'}`; // More detailed error
+            statusContainer.style.backgroundColor = '#f8d7da'; // Light red for error
+            statusContainer.style.color = '#721c24'; // Dark red for error text
+          }
+        })
+        .catch(err => {
+          statusContainer.textContent = `Error: Could not connect to server or request failed. Details: ${err.message}`; // More specific error
+          statusContainer.style.backgroundColor = '#f8d7da';
+          statusContainer.style.color = '#721c24';
+        });
+
+      return false;
+    }
+  </script>
+</body>
+</html>

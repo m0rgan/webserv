@@ -97,25 +97,28 @@ ConfigFileServer ConfigFile::parseServerBlock(std::ifstream &file)
 			serverParseKeyValue(lineStream, key, configFileServer);
 		}
 	}
-	// :large_yellow_circle: Override server-level directives with location / if explicitly defined
+	if (configFileServer.hasDuplicateHostPortInBlock()) {
+        throw std::runtime_error("[ERROR] Duplicate host:port for server: " + configFileServer.getServerName());
+    }
+	
 	const std::map<std::string, ConfigFileServerLocation>& locations = configFileServer.getLocations();
 	std::map<std::string, ConfigFileServerLocation>::const_iterator it = locations.find("/");
 	if (it != locations.end())
 	{
 		const ConfigFileServerLocation& rootLocation = it->second;
-		// Override root if explicitly set
+		
 		if (!rootLocation.getRoot().empty())
 			configFileServer.setRoot(rootLocation.getRoot());
-		// Override index files if explicitly set
+		
 		if (!rootLocation.getIndexFiles().empty())
 			configFileServer.setIndexFiles(rootLocation.getIndexFiles());
-		// Override autoindex only if it's different from the default (false)
+		
 		if (rootLocation.getAutoIndex() != false)
 			configFileServer.setAutoIndex(rootLocation.getAutoIndex());
-		// Override maxBodySize only if it's different from default (1048576 = 1MB)
+		
 		if (rootLocation.getMaxBodySize() != 1048576)
 			configFileServer.setMaxBodySize(rootLocation.getMaxBodySize());
-		// Override return directive if explicitly set
+		
 		if (rootLocation.hasReturnDirective())
 		{
 			configFileServer.addReturnDirective(
@@ -126,50 +129,6 @@ ConfigFileServer ConfigFile::parseServerBlock(std::ifstream &file)
 	}
 	return configFileServer;
 }
-
-// ConfigFileServer ConfigFile::parseServerBlock(std::ifstream &file)
-// {
-// 	ConfigFileServer configFileServer;
-// 	std::string line;
-// 	bool hasListenDirective = false;
-
-// 	while (std::getline(file, line))
-// 	{
-// 		line = ignoreComments(line);
-// 		std::istringstream lineStream(line);
-// 		std::string key;
-// 		if (!(lineStream >> key))
-// 			continue; // Skip empty lines
-// 		if (key == "}")
-// 		{
-// 			if (!hasListenDirective)
-// 				parseListenDirective("80", configFileServer);
-// 			break; // End of server block
-// 		}
-// 		if (key == "location")
-// 		{
-// 			std::string locationPath;
-// 			lineStream >> locationPath;
-// 			std::string remaining;
-// 			if (lineStream >> remaining && remaining != "{")
-// 				throw std::invalid_argument("Invalid syntax, expected {");
-// 			if (lineStream >> remaining)
-// 				throw std::runtime_error("Invalid syntax after {");
-// 			ConfigFileServerLocation location = parseLocationBlock(file, locationPath);
-// 			location.inheritFromServer(configFileServer);
-// 			configFileServer.addLocation(location);
-// 		}
-// 		else
-// 		{
-// 			if (key == "listen")
-// 				hasListenDirective = true;
-// 			serverParseKeyValue(lineStream, key, configFileServer);
-// 		}
-// 	}
-// 	if (hasDuplicateHostPort(configFileServer))
-// 		throw std::runtime_error("Error: Duplicate host:port combination found in server block.");
-// 	return (configFileServer);
-// }
 
 ConfigFileServerLocation ConfigFile::parseLocationBlock(std::ifstream &file, const std::string &locationPath)
 {
@@ -192,7 +151,6 @@ ConfigFileServerLocation ConfigFile::parseLocationBlock(std::ifstream &file, con
 
 void ConfigFile::parseListenDirective(const std::string &listenValue, ConfigFileServer &configFileServer)
 {
-	//invalid port number is simply returning but allows exectuion, does nginx launch anyway if error happens on port?
 	std::string host = "0.0.0.0";
 	int port = 80;
 
@@ -244,7 +202,7 @@ void ConfigFile::parseListenDirective(const std::string &listenValue, ConfigFile
 
 void ConfigFile::serverParseKeyValue(std::istringstream &lineStream, const std::string &key, ConfigFileServer &configFileServer)
 {
-	if (key == "listen") //if doesnt exist make default or error?
+	if (key == "listen")
 	{
 		std::string listenValue;
 		while (lineStream >> listenValue)
@@ -433,40 +391,6 @@ size_t ConfigFile::sizeConversion(const std::string &sizeStr)
 	}
 	return (value);
 }
-
-// Change listen directive to allow all IPs:
-// server {
-//     listen 80;
-//     server_name _;
-
-//     root /var/www/html;
-//     index index.html;
-// }
-// server_name _; → This ensures Nginx responds to all requests.
-// Alternatively, specify a specific network interface IP:
-
-// nginx handles $variables so i must add logic for that
-
-//location blocks can be several inside a server block, must handle
-// location / {
-// 	try_files $uri $uri/ =404;
-// }
-//must add try_files??s
-// must add these??
-// location /api/ {
-//     proxy_pass http://backend_server;
-//     proxy_set_header Host $host;
-//     proxy_set_header X-Real-IP $remote_addr;
-// }
-
-// location /ws/ {
-//     proxy_pass http://backend;
-//     proxy_http_version 1.1;
-//     proxy_set_header Upgrade $http_upgrade;
-//     proxy_set_header Connection "Upgrade";
-// }
-
-// # this root is problematic because of the empy spaces .....  /folder   123/folder2/file.html
 
 std::string &ConfigFile::ignoreComments(std::string &line)
 {

@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <set>
 
-const std::string DEFAULT_CONFIG = "default.conf"; //check if correct
+const std::string DEFAULT_CONFIG = "default.conf";
 
 class ConfigFile
 {
@@ -53,56 +53,3 @@ class ConfigFile
 };
 
 #endif
-
-//can there be virtual hosts like these:
-
-// Use Virtual Hosts (Same Port, Different Domains)
-// If you're using the same port but want to run different web apps, use Virtual Hosts.
-
-// Example nginx.conf:
-
-// server {
-//     listen 8080;
-//     server_name app1.local;
-//     root /var/www/app1;
-// }
-
-// server {
-//     listen 8080;
-//     server_name app2.local;
-//     root /var/www/app2;
-// }
-
-// struct LocationConfig
-// {
-// 	std::string root;
-// 	std::string alias;
-// 	std::vector<std::string> indexFiles;
-// 	std::vector<std::string> allowedMethods;
-// 	std::map<int, std::string> errorPages;
-// 	std::map<std::string, std::string> headers;
-// 	size_t maxBodySize;
-// 	bool autoIndex;
-// 	std::pair<int, std::string> returnDirective;
-// 	bool hasReturnDirective;
-// 	std::string	uri;
-// 	std::map<std::string, LocationConfig>	nestedLocations;
-
-// 	LocationConfig() : maxBodySize(1048576), autoIndex(false), hasReturnDirective(false) {}
-// };
-
-// struct ServerConfig
-// {
-// 	std::string serverName; // Defines the virtual host names server_name example.com www.example.com; Only responds to requests with Host: example.com
-// 	std::vector<std::pair <std::string, int> > hostPort;
-// 	std::string root;
-// 	std::vector<std::string> indexFiles;
-// 	std::map<int, std::string> errorPages;
-// 	std::map<std::string, LocationConfig> locations;
-// 	size_t maxBodySize;
-// 	bool autoIndex;
-// 	std::pair<int, std::string> returnDirective;
-// 	bool hasReturnDirective;
-
-// 	ServerConfig() : maxBodySize(1048576), autoIndex(false), hasReturnDirective(false) {}
-// };

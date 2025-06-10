@@ -14,9 +14,8 @@ COPY . /app
 
 RUN make re
 
-
+ENTRYPOINT ["valgrind", "--log-file=/valgrind-output/valgrind.log", "--leak-check=full", "--show-leak-kinds=definite", "--trace-children=yes", "--track-origins=yes", "--track-fds=all", "./webserv", "webserv.conf"]
 # ENTRYPOINT ["valgrind", "--help"]
-ENTRYPOINT ["./webserv", "webserv.conf"]
-# ENTRYPOINT ["valgrind", "--leak-check=full", "--show-leak-kinds=definite", "--trace-children=yes", "--track-origins=yes", "--track-fds=all", "./webserv", "webserv.conf"]
+# ENTRYPOINT ["./webserv", "webserv.conf"]
 
 # ENTRYPOINT ["valgrind", "--trace-children=yes", "--track-fds=all", "./webserv", "webserv.conf"]

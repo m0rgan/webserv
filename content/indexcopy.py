@@ -55,6 +55,7 @@ if request_method == "POST":
     except json.JSONDecodeError:
         print("Content-Type: application/json\r\n")
         print(json.dumps({"error": "Invalid JSON"}))
+        sys.stdout.flush()
         sys.exit(0)
 
     username = data.get("username", "").strip()
@@ -67,9 +68,14 @@ if request_method == "POST":
                 session_data["username"] = username
                 with open(session_file, "w") as f:
                     json.dump(session_data, f)
+                print("Content-Type: application/json\r\n")
+                print(json.dumps({ "message": "Logged in!" }))
+                sys.stdout.flush()
+                sys.exit(0)
             else:
                 print("Content-Type: application/json\r\n")
                 print(json.dumps({"error": "Invalid password"}))
+                sys.stdout.flush()
                 sys.exit(0)
         else:
             users[username] = password
@@ -79,6 +85,10 @@ if request_method == "POST":
             session_data["username"] = username
             with open(session_file, "w") as f:
                 json.dump(session_data, f)
+            print("Content-Type: application/json\r\n")
+            print(json.dumps({ "message": "Registered!" }))
+            sys.stdout.flush()
+            sys.exit(0)
 
 # Handle logout
 elif request_method == "DELETE":
@@ -92,6 +102,7 @@ elif request_method == "DELETE":
     print("Set-Cookie: SESSIONID=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly")
     print("Content-Type: application/json\r\n")
     print(json.dumps({"message": "Logged out"}))
+    sys.stdout.flush()
     sys.exit(0)
 
 
@@ -133,15 +144,14 @@ print(f"""
             }});
 
             const result = await response.json();
-            document.getElementById("status").textContent = result.error || "Logged in!";
-            if (!result.error) location.reload();
+            document.getElementById("status").textContent = result.message || result.error || "Unknown response";
         }});
         async function logout() {{
             const response = await fetch("/indexcopy.py", {{ method: "DELETE" }});
             const result = await response.json();
-            console.log(result.message); // Debugging: Check if logout response is received
+            document.getElementById("status").textContent = result.message || result.error || "Unknown response";
             document.cookie = "SESSIONID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/"; // Force cookie deletion
-            location.reload();
+
         }}
 
     </script>

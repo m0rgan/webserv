@@ -18,11 +18,14 @@
 #include <map>
 #include <iostream>
 #include <ConfigFileServerLocation.hpp>
+#include <set>
+#include <algorithm>
+#include <stdexcept>
 
 class ConfigFileServer
 {
 	private:
-		std::string 									_serverName;  // Defines the virtual host names server_name example.com www.example.com; Only responds to requests with Host: example.com
+		std::string 									_serverName;
 		std::vector<std::pair <std::string, int> > 		_hostPort;
 		std::string 									_root;
 		std::vector<std::string>						_indexFiles;
@@ -62,9 +65,9 @@ class ConfigFileServer
 		bool hasReturnDirective() const;
 		int getReturnStatusCode() const;
 		const std::string &getReturnUrl() const;
-		const std::pair<int, std::string> &getReturnDirective() const;
+		const std::pair<int, std::string> &getReturnDirective() const;		
+		bool hasDuplicateHostPortInBlock() const;
 
-		//allowedMethods (getLocations is a map)
 };
 
 #endif

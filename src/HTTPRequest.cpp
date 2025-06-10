@@ -106,19 +106,6 @@ void HTTPRequest::parserHeaders(const std::string &rawRequest)
 	}
 }
 
-void HTTPRequest::parserBody(const std::string &rawRequest)
-{
-	std::istringstream requestStream(rawRequest);
-	std::string bodyStr;
-	std::getline(requestStream, bodyStr, '\0');
-	body = bodyStr;
-	if (method == "POST" && body.empty())
-	{
-		throw std::runtime_error("400 Bad Request");
-	}
-	
-}
-
 std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 {
 	std::string matchedLocation;
@@ -129,7 +116,7 @@ std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 
 	for (std::map<std::string, ConfigFileServerLocation>::const_iterator it = locations.begin(); it != locations.end(); ++it)
 	{
-		if (uri.find(it->first) == 0 && (matchedLocation.empty() || it->first.length() > matchedLocation.length()))
+		if ((uri == it->first || (uri.find(it->first + "/") == 0)) && (matchedLocation.empty() || it->first.length() > matchedLocation.length()))
 		{
 			matchedLocation = it->first;
 			resolvedRoot = it->second.getRoot();
@@ -156,11 +143,12 @@ std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 	else
 	{
 		filePath = resolvedRoot;
-		if (!resolvedRoot.empty() && resolvedRoot[resolvedRoot.size() - 1] != '/')
+		std::string relativeUri = uri.substr(matchedLocation.length());
+		if (!relativeUri.empty() && relativeUri[0] == '/')
+			relativeUri = relativeUri.substr(1);
+		if (!filePath.empty() && filePath[filePath.size() - 1] != '/')
 			filePath += "/";
-		if (!requestUri.empty() && requestUri[0] == '/')
-			requestUri = requestUri.substr(1);
-		filePath += requestUri;
+		filePath += relativeUri;
 	}
 
 	if (method == "POST" || method == "DELETE")
@@ -178,7 +166,6 @@ std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 			std::ifstream file(indexPath.c_str());
 			if (file.good())
 				return (indexPath);
-			//what does nginx do when there is not index directive?
 		}
 		if (method == "GET")
 		{
@@ -201,7 +188,7 @@ std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 
 const std::string& HTTPRequest::getHost() const {return _host;}
 int HTTPRequest::getPort() const {return _port;}
-// content length esta en cero causando que no funcione y max body en / esta reescribiendo el del server directive AQUIIIII
+
 size_t HTTPRequest::parseContentLength(std::string contentLengthStr)
 {
 	if (contentLengthStr.empty())
@@ -293,8 +280,80 @@ const ConfigFileServerLocation* HTTPRequest::matchLocation(const ConfigFileServe
 	return (bestLocation);
 }
 
+void HTTPRequest::parseURI() {
+
+	if (uri.empty()) {
+	path.clear();
+	query.clear();
+	fragment.clear();
+	return;
+}
+
+	size_t queryPos = uri.find('?');
+	size_t fragmentPos = uri.find('#');
+
+	size_t pathEnd = std::min(
+		queryPos != std::string::npos ? queryPos : uri.size(),
+		fragmentPos != std::string::npos ? fragmentPos : uri.size()
+	);
+	path = uri.substr(0, pathEnd);
+
+	if (queryPos != std::string::npos) {
+		size_t queryEnd = (fragmentPos != std::string::npos) ? fragmentPos : uri.size();
+		query = uri.substr(queryPos + 1, queryEnd - queryPos - 1);
+	}
+	if (fragmentPos != std::string::npos) {
+		fragment = uri.substr(fragmentPos + 1);
+	}
+}
+
+bool isValidURI(const std::string& uri) {
+	static const std::string allowed =
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		"abcdefghijklmnopqrstuvwxyz"
+		"0123456789"
+		"-._~:/?#[]@!$&'()*+,;=";
+
+	for (size_t i = 0; i < uri.length(); ++i) {
+		char c = uri[i];
+
+		if (c == '%') {
+			if (i + 2 >= uri.length() ||
+				!isxdigit(uri[i + 1]) ||
+				!isxdigit(uri[i + 2]))
+				return false;
+			i += 2;
+		} else if (allowed.find(c) == std::string::npos) {
+			return false;
+		}
+	}
+	return true;
+}
+
+std::string decodePercentEncoding(const std::string& str) {
+	std::string decoded;
+	for (size_t i = 0; i < str.length(); ++i) {
+		if (str[i] == '%' && i + 2 < str.length()) {
+			char hex[3] = { str[i + 1], str[i + 2], 0 };
+			decoded += static_cast<char>(strtol(hex, NULL, 16));
+			i += 2;
+		} else {
+			decoded += str[i];
+		}
+	}
+	return decoded;
+}
+
+
 bool HTTPRequest::validateRequest(const ConfigFileServer &config, Client &client)
 {
+	parseURI();
+
+	path = decodePercentEncoding(path);
+
+	if (!isValidURI(path))
+		return (client.prepareErrorResponse(400), false);
+
 	const ConfigFileServerLocation *matchedLocation = matchLocation(config);
 
 	if (locationReturn(matchedLocation, client))
@@ -303,7 +362,6 @@ bool HTTPRequest::validateRequest(const ConfigFileServer &config, Client &client
 		return (false);
 	if (matchedLocation && !isMethodAllowed(matchedLocation))
 		return (client.prepareErrorResponse(405), (false));
-	// std::cerr << "HTTPRequest::validateRequest " << contentLength << "-"<<  config.getRoot() <<"----------"<<  matchedLocation->getURI() << "-"<<  matchedLocation->getMaxBodySize() << std::endl;
 	if (contentLength > matchedLocation->getMaxBodySize())
 		return (client.prepareErrorResponse(413), (false));
 	resolvedFilePath = resolveFilePath(config);
@@ -325,10 +383,12 @@ void HTTPRequest::logRequest(const std::string timestamp) const
 	std::cout << color << "[" << timestamp << "] ";
 	std::cout << httpVersion << " " << method << " " << uri;
 	std::cout << RESET << std::endl;
+	// std::cout << std::endl;
 
 	// for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
 	// 	std::cout << it->first << ": " << it->second << std::endl;
 	// if (!body.empty())
 	// 	std::cout << std::endl << body << std::endl;
+
 	// std::cout << RESET;
 }

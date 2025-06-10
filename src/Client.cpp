@@ -84,7 +84,6 @@ bool Client::isCGIFD(int fd) const {
 	return fd == _cgiPipeFD;
 }
 
-
 const ConfigFileServer& Client::getConfigFileServer() const { return _currentConfig; }
 void Client::setConfigFileServer(const ConfigFileServer &config) { _currentConfig = config; }
 bool Client::keepAlive() const { return (_keepAlive); }
@@ -158,14 +157,14 @@ bool Client::chunkedData(HTTPRequest *http)
 		{
 			size_t chunkEnd = _requestBuffer.find("\r\n", headerEnd);
 			if (chunkEnd == std::string::npos)
-				return (false); // keep reading
+				return (false);
 			std::string chunkSizeStr = _requestBuffer.substr(headerEnd, chunkEnd - headerEnd);
 			size_t chunkSize = stringTUL(chunkSizeStr);
 			headerEnd = chunkEnd + 2;
 			if (chunkSize == 0)
-				break; // finish reading
+				break;
 			if (headerEnd + chunkSize > _requestBuffer.size())
-				return (false); // keep reading
+				return (false);
 			body.append(_requestBuffer.substr(headerEnd, chunkSize));
 			headerEnd += chunkSize + 2;
 		}
@@ -174,7 +173,7 @@ bool Client::chunkedData(HTTPRequest *http)
 		{
 			throw std::runtime_error("400 Bad Request");
 		}
-		return (true); // everything read
+		return (true);
 	}
 	return (false);
 }
@@ -190,7 +189,11 @@ bool Client::lengthData(HTTPRequest *http)
 	{
 		try
 		{
-			http->parserBody(_requestBuffer.substr(headersEndPos, contentLength)); // everything read
+			http->body = _requestBuffer.substr(headersEndPos, contentLength);
+			if (http->method == "POST" && http->body.empty())
+			{
+				throw std::runtime_error("400 Bad Request");
+			}
 			return (true);
 		}
 		catch(const std::exception& e)
@@ -198,14 +201,13 @@ bool Client::lengthData(HTTPRequest *http)
 			throw std::runtime_error(e.what());
 		}
 	}
-	return (false); //keep reading
+	return (false);
 }
 
 void Client::handleRequest(HTTPRequest *http)
 {	
 	http->logRequest(getCurrentTimestamp());
 
-	// DO WE NEED TO PARSE FOR VALID HOSTNAMES???? and for $ variables?
 	if (!http->validateRequest(_currentConfig, *this))
 		return;
 	handleCookies(http);
@@ -233,8 +235,6 @@ void Client::handleRequest(HTTPRequest *http)
 	}
 	catch (const std::exception &e)
 	{
-		// std::cerr << e.what() << std::endl;
-		//close client?
 		prepareErrorResponse(500);
 		return;
 	}
@@ -255,12 +255,11 @@ void Client::handleCookies(HTTPRequest *http)
 	if (http->headers.find("Cookie") != http->headers.end())
 		_cookies.parse(http->headers["Cookie"]);
 	std::string sessionID = _cookies.getCookie("SESSIONID");
-	// std::cout << " FIRST " << sessionID << std::endl;
+
 	if (!sessionID.empty() && !_sessionManager.sessionExists(sessionID))
 	{
 		_sessionManager.createSession(sessionID);
 		_cookies.setCookie("SESSIONID", sessionID + "; Path=/; HttpOnly");
-		// std::cout << sessionID << std::endl;
 	}
 	else if (sessionID.empty()) 
 	{
@@ -290,23 +289,19 @@ bool Client::routeToCGI(std::string requestURI)
 
 void Client::handleCGIOutput(int fd)
 {
-	// std::cerr << "[CGI] Output on FD " << fd << " for client FD " << _clientSocket << std::endl;
-
 	if (_cgiPipeFD == -1 || fd != _cgiPipeFD || !_cgi || !_pendingRequest)
 		return;
 	
 	try {
-		_cgi->handleCGIOutput(fd, _pendingRequest);
+		_cgi->readCGIOutput(fd);
 		if (_cgi->isComplete())
 		{
-			// std::cerr << "[CGI] complete" << std::endl;
-			// std::cerr << "[DEBUG] Removing FD " << fd << ", current use: CGI\n";
 			_cgiPipeFD = -1;
 			
 			prepareResponse(200, "text/html", _cgi->getOutput(), "", _cgi->getHeaders());
 
 			_serverLauncher->removeCGIFD(fd);
-			_serverLauncher->getEpoll().removeFD(fd); // cleanup epoll
+			_serverLauncher->getEpoll().removeFD(fd);
 			close(fd);
 			delete _cgi;
 			_cgi = NULL;
@@ -315,7 +310,6 @@ void Client::handleCGIOutput(int fd)
 			_serverLauncher->getEpoll().modifyFD(_clientSocket, EPOLLOUT);
 		}
 	} catch (const std::exception &e) {
-		// std::cerr << "[CGI] catch exception: " << fd << " e- " << e.what() << std::endl;
 		if (_cgiPipeFD != -1) {
 			_cgiPipeFD = -1;
 			_serverLauncher->getEpoll().removeFD(fd);
@@ -335,17 +329,12 @@ void Client::handleCGIOutput(int fd)
 	}
 }
 
-int Client::getSocket() {
-	return	_clientSocket;
-}
-CGI* Client::getCGI() {
-	return	_cgi;
-}
-time_t Client::getCGITime() {
-	return	_cgiStartTime;
-}
+int Client::getSocket() { return _clientSocket; }
+CGI* Client::getCGI() { return _cgi; }
+time_t Client::getCGITime() { return _cgiStartTime; }
+
 void Client::cleanupCGIState(int errorCode) {
-	// std::cout << "Client::cleanupCGIState " << errorCode << std::endl;
+
 	prepareErrorResponse(errorCode);
 	writeResponse();
 	if (_cgiPipeFD != -1)
@@ -368,7 +357,7 @@ void Client::cleanupCGIState(int errorCode) {
 void Client::handleGET(HTTPRequest	*http)
 {
 	std::string filePath = http->resolveFilePath(_currentConfig);
-	// std::cout << "FILE PATH : " << filePath << std::endl;
+
 	if (filePath == "403")
 	{
 		prepareErrorResponse(403);
@@ -418,7 +407,7 @@ void Client::handlePOST(HTTPRequest *http)
 		size_t start = http->body.find(fullBoundary);
 		if (start == std::string::npos)
 		{
-			prepareErrorResponse(400);//Starting boundary not found");
+			prepareErrorResponse(400);
 			return;
 		}
 		start += fullBoundary.length() + 2;
@@ -430,14 +419,14 @@ void Client::handlePOST(HTTPRequest *http)
 			end = http->body.find(closingBoundary, start);
 		if (end == std::string::npos)
 		{
-			prepareErrorResponse(400);//Bad Request: Ending boundary not found");
+			prepareErrorResponse(400);
 			return;
 		}
 		std::string part = http->body.substr(start, end - start);
 		size_t headerEnd = part.find("\r\n\r\n");
 		if (headerEnd == std::string::npos)
 		{
-			prepareErrorResponse(400);//Could not find headers in part");
+			prepareErrorResponse(400);
 			return;
 		}
 		headerEnd += 4;
@@ -446,14 +435,14 @@ void Client::handlePOST(HTTPRequest *http)
 		size_t filenamePos = part.find("filename=\"");
 		if (filenamePos == std::string::npos)
 		{
-			prepareErrorResponse(400);//Filename not found in Content-Disposition header");
+			prepareErrorResponse(400);
 			return;
 		}
 		filenamePos += 10;
 		size_t filenameEnd = part.find("\"", filenamePos);
 		if (filenameEnd == std::string::npos)
 		{
-			prepareErrorResponse(400);//Invalid filename in Content-Disposition header");
+			prepareErrorResponse(400);
 			return;
 		}
 		std::string filename = part.substr(filenamePos, filenameEnd - filenamePos);
@@ -462,7 +451,7 @@ void Client::handlePOST(HTTPRequest *http)
 		std::ofstream file(filePath.c_str(), std::ios::binary);
 		if (!file)
 		{
-			prepareErrorResponse(500); //SERVER Error or BAD REQUEST?
+			prepareErrorResponse(500);
 			return;
 		}
 		file << fileContent;
@@ -476,7 +465,7 @@ void Client::handlePOST(HTTPRequest *http)
 		filename.erase(std::remove(filename.begin(), filename.end(), '\''), filename.end());
 		if (filename.empty())
 		{
-			prepareErrorResponse(400);//Filename header missing");
+			prepareErrorResponse(400);
 			return;
 		}
 		std::string filePath = root + "/" + filename;
@@ -494,18 +483,11 @@ void Client::handlePOST(HTTPRequest *http)
 
 void Client::handleDELETE(HTTPRequest *http)
 {
-	//[EVAL]try to delete something with and without permissions from config file and chmod000
-	std::string root = http->resolveFilePath(_currentConfig);
-	std::string filename = http->headers["X-Filename"];
-	filename.erase(std::remove(filename.begin(), filename.end(), '\r'), filename.end());
-	filename.erase(std::remove(filename.begin(), filename.end(), '\n'), filename.end());
-	filename.erase(std::remove(filename.begin(), filename.end(), '\''), filename.end());
-	if (filename.empty())
-	{
-		prepareErrorResponse(400);//Filename header missing");
+	std::string filePath = http->resolveFilePath(_currentConfig);
+	if (filePath.empty()) {
+		prepareErrorResponse(400);
 		return;
 	}
-	std::string filePath = root + "/" + filename;
 	if (std::remove(filePath.c_str()) == 0)
 		prepareResponse(200, "text/plain", "File deleted successfully", "", "");
 	else
@@ -538,7 +520,7 @@ std::string resolveErrorPage(int statusCode, const std::string& requestURI, cons
 			matchedPrefix = it->first;
 		}
 	}
-	// 1. Check location-level error_page
+
 	if (matchedLocation)
 	{
 		const std::map<int, std::string> &errorPages = matchedLocation->getErrorPages();
@@ -559,7 +541,7 @@ std::string resolveErrorPage(int statusCode, const std::string& requestURI, cons
 				return (matchedLocation->getRoot() + "/" + ss.str() + uri);
 		}
 	}
-	// 2. Fallback to server-level error pages
+
 	const std::map<int, std::string> &serverErrorPages = config.getErrorPages();
 	std::map<int, std::string>::const_iterator serverErr = serverErrorPages.find(statusCode);
 	if (serverErr != serverErrorPages.end())
@@ -569,7 +551,6 @@ std::string resolveErrorPage(int statusCode, const std::string& requestURI, cons
 		std::string path = "/" + ss.str() + serverErr->second;
 		if (!locations.empty())
 		{
-			// Use the first location root/alias as fallback
 			const ConfigFileServerLocation &firstLoc = locations.begin()->second;
 			if (firstLoc.hasAlias())
 				return (firstLoc.getAlias() + path);
@@ -577,13 +558,12 @@ std::string resolveErrorPage(int statusCode, const std::string& requestURI, cons
 				return (firstLoc.getRoot() + path);
 		}
 	}
-	// Not found
 	return "";
 }
 void Client::prepareErrorResponse(int statusCode)
 {
 	HTTPResponse response;
-	std::string requestURI = "/"; // fallback
+	std::string requestURI = "/";
 	size_t uriStart = _requestBuffer.find(" ");
 	if (uriStart != std::string::npos)
 	{
@@ -606,7 +586,7 @@ void Client::prepareErrorResponse(int statusCode)
 			return;
 		}
 	}
-	// Fallback to generated HTML
+
 	std::string errorPage = ErrorPage::generate(statusCode);
 	std::ifstream file(errorPage.c_str(), std::ios::binary);
 	if (file)
@@ -644,12 +624,12 @@ void Client::writeResponse()
 	while (sent < total)
 	{
 		written = send(_clientSocket, responseData + sent, total - sent, MSG_NOSIGNAL);
-		// MSG_OOB        0x1  /* process out-of-band data */
+		
 		if (written == -1)
 			continue;
 		if (written == 0)
 		{
-			_keepAlive = false; // connection closed by client
+			_keepAlive = false;
 			return;
 		}
 		sent += written;
@@ -660,7 +640,6 @@ void Client::writeResponse()
 		if (_requestBuffer.find("Connection: keep-alive") != std::string::npos)
 		{
 			resetState();
-			// std::cerr << " DEBUG - SET KEEPALIVE TRUE" << std::endl;
 			_keepAlive = true;
 		}
 		else

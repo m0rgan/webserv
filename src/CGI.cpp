@@ -144,6 +144,16 @@ void CGI::execute(HTTPRequest *http, int socketPair[2])
 	else
 	{
 		close(socketPair[1]);
+		if ((http->method == "POST" || http->method == "DELETE") && !http->body.empty() && !_sentBody)
+		{
+			ssize_t bytesWritten = write(socketPair[0], http->body.c_str(), http->body.size());
+			if (bytesWritten < 0)
+			{
+				// close(socketPair[0]);
+				throw std::runtime_error("[ERROR] Writing to CGI process failed");
+			}
+			_sentBody = true;
+		}
 		if (fcntl(socketPair[0], F_SETFL, O_NONBLOCK) == -1)
 		{
 			close(socketPair[0]);
@@ -155,59 +165,43 @@ void CGI::execute(HTTPRequest *http, int socketPair[2])
 
 void CGI::childProcess(int socketPair[2], HTTPRequest *http)
 {
-	// std::cerr << "[DEBUG] childProcess - " << _fullPath << std::endl;
 	close(socketPair[0]);
 	size_t pos = _fullPath.find_last_of('/');
 	if (pos != std::string::npos)
 	{
-		std::string dirPath = _fullPath.substr(0, pos); //cambiar argv[0] a solo el archivo, tiene el path completo.
-		// std::cerr << "[DEBUG] chdir issue - " << dirPath << std::endl;
+		std::string dirPath = _fullPath.substr(0, pos);
 		if (chdir(dirPath.c_str()) == -1)
+		{
 			(close(socketPair[1]), std::exit(1));
+		}
 	}
 	if (dup2(socketPair[1], STDIN_FILENO) == -1 || dup2(socketPair[1], STDOUT_FILENO) == -1 || dup2(socketPair[1], STDERR_FILENO) == -1)
 	{	
-		// std::cerr << "[DEBUG] dup2 issue" << std::endl;
-		(close(socketPair[1]));//, close(log_fd)
+		(close(socketPair[1]));
 		// http->~HTTPRequest();
 		_serverLauncher->cleanupChild();
 		// this->~CGI();
 		std::exit(1);
 	}
-	(close(socketPair[1])); //, close(log_fd)
+	(close(socketPair[1]));
 	if (access(_argv[0], F_OK | R_OK | X_OK) == -1)
 	{
-		// std::cerr << "[DEBUG] access issue" << std::endl;
 		// http->~HTTPRequest();
 		_serverLauncher->cleanupChild();
 		// this->~CGI();
 		std::exit(1);
 	}
 
-	// std::cerr << "[DEBUG] before execve" << std::endl;
 	execve(_argv[0], _argv.data(), _env.data());
-	// std::cerr << "[DEBUG] after execve" << std::endl;
 	_serverLauncher->cleanupChild();
-	http->~HTTPRequest();
+	// http->~HTTPRequest();
 	std::cerr << "" <<http->headers[0] << std::endl;
-	this->~CGI();
+	// this->~CGI();
 	std::exit(1);
 }
 
-void CGI::handleCGIOutput(int fd, HTTPRequest *http)
+void CGI::readCGIOutput(int fd)
 {
-	
-	// std::cerr << "[DEBUG] CGI ---- handleCGIOutput" << std::endl;
-	// std::cerr << "[DEBUG] method=[" << http->method << "], body.empty=" << http->body.empty() << ", sent=" << _sentBody << std::endl;
-	if ((http->method == "POST" || http->method == "DELETE") && !http->body.empty() && !_sentBody)
-	{
-		ssize_t bytesWritten = write(fd, http->body.c_str(), http->body.size());
-		if (bytesWritten < 0)
-		{
-			throw std::runtime_error("[ERROR] Writing to CGI process failed");
-		}
-		_sentBody = true;
-	}
 
 	char buffer[4096];
 	ssize_t bytesRead = read(fd, buffer, sizeof(buffer));
@@ -215,7 +209,6 @@ void CGI::handleCGIOutput(int fd, HTTPRequest *http)
 	if (bytesRead > 0)
 	{
 		_cgiOutput.append(buffer, bytesRead);
-		// std::cerr << "[DEBUG]  cgioutput: " << _cgiOutput << " is cgi done true " << _done << std::endl;
 	}
 	else if (bytesRead == 0)
 	{

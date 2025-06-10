@@ -22,7 +22,6 @@ void handleSIGINT(int sig)
 	std::cerr << "[SIGNAL] Caught signal " << sig << " - Shutting down server" << std::endl;
 	if (serverLauncherInstance)
 		serverLauncherInstance->~ServerLauncher();
-	// kill(0, SIGTERM);
 	std::exit(0);
 }
 
@@ -103,13 +102,11 @@ EPoll &ServerLauncher::getEpoll() { return _epoll; }
 
 void ServerLauncher::loop()
 {
-	// std::cout << "[LOOP] Entering main server loop..." << std::endl;
 	for (;;)
 	{
 		for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
 			Client* client = it->second;
 			if (client->getCGI() && std::time(NULL) - client->getCGITime() > 35) {
-				// std::cerr << "[TIMEOUT] CGI took too long\n";
 				client->cleanupCGIState(504);
 				removeClient(client->getSocket());
 			}
@@ -122,11 +119,10 @@ void ServerLauncher::loop()
 			struct epoll_event epoll = _epoll.getEvent(i);
 			int fd = epoll.data.fd;
 
-			if (epoll.events & (EPOLLERR)) //| EPOLLNVAL EPOLLHUP | 
+			if (epoll.events & (EPOLLERR))
 			{
 				if (_cgiFDMap.find(fd) != _cgiFDMap.end())
 				{
-					// std::cout << "[LOOP] CGI ERROR ON FD: " << fd << std::endl;
 					int clientFd = _cgiFDMap[fd];
 					Client* client = _clients[clientFd];
 					if (client)
@@ -139,12 +135,10 @@ void ServerLauncher::loop()
 			{
 				if (_servers.find(fd) != _servers.end())
 				{
-					// std::cout << "[LOOP] New client connection on server FD: " << fd << std::endl;
 					newClient(fd);
 				}
 				else if (_cgiFDMap.find(fd) != _cgiFDMap.end())
 				{
-					// std::cout << "[LOOP] CGI output ready on FD: " << fd << std::endl;
 					int clientFd = _cgiFDMap[fd];
 					Client* client = _clients[clientFd];
 					if (client)
@@ -159,7 +153,6 @@ void ServerLauncher::loop()
 			{
 				if (_clients.find(fd) != _clients.end())
 				{
-					// std::cout << "[LOOP] Ready to write to client FD: " << fd << std::endl;
 					if (_clients[fd]->hasPendingData())
 					{
 						_clients[fd]->writeResponse();
@@ -186,10 +179,6 @@ void ServerLauncher::removeCGIFD(int fd) {
 	_cgiFDMap.erase(fd);
 }
 
-// The event bitmasks in events and revents have the following bits:
-//      POLLPRI        High priority data may be read without blocking.
-//      POLLWRBAND     Priority data may be written without blocking.
-
 void ServerLauncher::newClient(int serverFd)
 {
 	Server* server = _servers[serverFd];
@@ -206,7 +195,6 @@ void ServerLauncher::newClient(int serverFd)
 		setCloexecFlag(clientFd);
 		_epoll.addFD(clientFd, EPOLLIN | EPOLLOUT);
 		_clients[clientFd] = new Client(clientFd, server->getConfig(), _sessionManager, this);
-		// std::cerr << "[DEBUG] NEW client FD: " << clientFd << std::endl;
 	}
 }
 
@@ -216,21 +204,21 @@ void ServerLauncher::existingClient(int clientFd)
 
 	if (!client)
 	return;
-	// std::cout << "[CLIENT] Handling existing client FD: " << clientFd << std::endl;
+
 	HTTPRequest* http = NULL;
 	try
 	{
 		http = client->readRequest();
 		if (!http || http->method.empty() || http->uri.empty())
 		{
-			delete http;
+			if (http)
+				delete http;
 			removeClient(clientFd);
 			return;
 		}
 		Server* server = serverSelector(*http);
 		if (server && server->getConfig().getServerName() != client->getConfigFileServer().getServerName())
 		{
-			// std::cout << "[DEBUG] Changing server config for client FD: " << clientFd << std::endl;
 			client->setConfigFileServer(server->getConfig());
 		}
 		client->handleRequest(http);
@@ -241,18 +229,11 @@ void ServerLauncher::existingClient(int clientFd)
 	}
 	catch (const std::exception &e)
 	{
-		// std::cerr << "[ERROR] ServerLauncher::existingClient Client error: " << e.what() << std::endl;
 		if (http)
 			delete http;
 		removeClient(clientFd);
 	}
 }
-
-// 	Server Block Selection Rules
-// Nginx first looks for a server block with a matching listen directive and server_name.
-// If multiple blocks match, it picks the first one defined in the config.
-// If no server_name matches, it uses the first server block that matches the listen port.
-// If multiple blocks listen on the same port but with different server_name, Nginx will default to the first one in order.
 
 Server* ServerLauncher::serverSelector(const HTTPRequest &http)
 {
@@ -261,11 +242,9 @@ Server* ServerLauncher::serverSelector(const HTTPRequest &http)
 
 	if (host == "localhost")
 		host = "127.0.0.1";
-	// MUST ADD LOGIC TO STREAMLINE HOSTNAME RESOLUTION 
 
 	Server* fallback = NULL;
 
-	// std::cout << "[DEBUG] Looking for server for host: " << host << " and port: " << port << std::endl;
 	for (std::vector<Server*>::iterator it = _serverConfigOrder.begin(); it != _serverConfigOrder.end(); ++it)
 	{
 		const ConfigFileServer& config = (*it)->getConfig();
@@ -273,25 +252,19 @@ Server* ServerLauncher::serverSelector(const HTTPRequest &http)
 		for (size_t i = 0; i < hostPorts.size(); ++i)
 		{
 			if (hostPorts[i].first == host && hostPorts[i].second == port)
-			{
-				// std::cout << "[DEBUG] Found server for host: " << host << " and port: " << port << std::endl;
 				return (*it);
-			}
 			if (!fallback && hostPorts[i].second == port)
 				fallback = *it;
 		}
 	}
-	// std::cout << "[DEBUG] No server found for host: " << host << " and port: " << port << std::endl;
 	return (fallback);
 }
 
 void ServerLauncher::removeClient(int clientFd)
 {
-	// std::cerr << "[DEBUG] ServerLauncher::removeClient remove client FD: " << clientFd << std::endl;
 	_epoll.removeFD(clientFd);
 	if (_clients.find(clientFd) != _clients.end())
 	{
-		// std::cerr << "[DEBUG] Removing client FD: " << clientFd << std::endl;
 		delete _clients[clientFd];
 		_clients.erase(clientFd);
 	}

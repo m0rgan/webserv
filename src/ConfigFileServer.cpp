@@ -58,3 +58,17 @@ const std::string &ConfigFileServer::getReturnUrl() const {return _returnDirecti
 const std::pair<int, std::string> &ConfigFileServer::getReturnDirective() const {return _returnDirective;}
 void ConfigFileServer::addHostPort(const std::string &host, int port) {_hostPort.push_back(std::make_pair(host, port));}
 const std::vector<std::pair<std::string, int> > &ConfigFileServer::getHostPort() const { return _hostPort; }
+
+bool ConfigFileServer::hasDuplicateHostPortInBlock() const {
+    std::set<std::pair<std::string, int> > uniqueHostPorts;
+
+    for (std::vector<std::pair<std::string, int> >::const_iterator it = _hostPort.begin();
+         it != _hostPort.end(); ++it)
+    {
+        if (uniqueHostPorts.find(*it) != uniqueHostPorts.end()) {
+            return true;
+        }
+        uniqueHostPorts.insert(*it);
+    }
+    return false;
+}

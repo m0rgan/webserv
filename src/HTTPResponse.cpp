@@ -235,15 +235,19 @@ std::string HTTPResponse::directoryList(const std::string &directoryPath, const 
 	if (dir)
 	{
 		struct dirent *entry;
+		std::string baseUri = uri;
+		if (baseUri.empty() || baseUri[baseUri.length() - 1] != '/')
+			baseUri += '/';
+
 		while ((entry = readdir(dir)) != NULL)
 		{
 			std::string name = entry->d_name;
 			if (name == ".")
-				continue; // Skip current directory
+				continue;
 			if (name == "..")
 				html << "<li><a href=\"" << uri << "../\">Parent Directory</a></li>";
 			else
-				html << "<li><a href=\"" << uri << name << (entry->d_type == DT_DIR ? "/" : "") << "\">" << name << "</a></li>";
+				html << "<li><a href=\"" << baseUri << name << (entry->d_type == DT_DIR ? "/" : "") << "\">" << name << "</a></li>";
 		}
 		closedir(dir);
 	}
@@ -256,6 +260,7 @@ void HTTPResponse::logResponse(const std::string &timestamp) const
 	std::cout << BLUE << "[" << timestamp << "] ";
 	std::cout << _protocol << " " << _statusLine.first << " " << _statusLine.second;
 	std::cout << RESET << std::endl;
+	// std::cout << std::endl;
 
 	// for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
 	// 	std::cout << it->first << ": " << it->second << std::endl;

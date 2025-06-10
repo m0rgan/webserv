@@ -46,6 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 if ($_SERVER["REQUEST_METHOD"] === "DELETE") {
     header("Content-Type: application/json");
 	session_destroy();
+	setcookie("PHPSESSID", "", time() - 3600, "/");
     echo json_encode(["success" => "Logged out"]);
     exit;
 }
@@ -80,7 +81,7 @@ header("Content-Type: text/html");
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
 
-            const response = await fetch("/index.php", {
+            const response = await fetch("/indexcopy.php", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username, password })
@@ -88,13 +89,18 @@ header("Content-Type: text/html");
 
             const result = await response.json();
             document.getElementById("status").textContent = result.error || "Logged in!";
-            if (!result.error) location.reload();
+            
         });
 
         async function logout() {
-            await fetch("/index.php", { method: "DELETE" });
-            location.reload();
+            const response = await fetch("/indexcopy.php", {
+                method: "DELETE",
+                credentials: "include"
+            });
+            const result = await response.json();
+            document.getElementById("status").textContent = result.error || "Logged out!";
         }
+
     </script>
 </body>
 </html>
