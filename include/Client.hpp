@@ -14,17 +14,13 @@
 #define CLIENT_HPP
 
 #include <iostream>
-
 #include <HTTPRequest.hpp>
 #include <ConfigFileServer.hpp>
-
 #include "Utilities.hpp"
 #include <HTTPResponse.hpp>
 #include <ErrorPage.hpp>
 #include <SessionManagement.hpp>
 #include <Cookies.hpp>
-
-
 #include <sstream>
 #include <fstream>
 #include <istream>
@@ -35,7 +31,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
-#include <stdio.h> //errno
+#include <stdio.h>
 
 class CGI;
 class ServerLauncher;
@@ -71,7 +67,6 @@ class Client
 		Client &operator=(Client const &rhs);
 		~Client(void);
 		
-		// Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager);
 		Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager, ServerLauncher* serverLauncher);
 		HTTPRequest* readRequest();
 		void handleRequest(HTTPRequest *http);

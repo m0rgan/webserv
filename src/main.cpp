@@ -32,40 +32,9 @@ int main(int argc, char *argv[])
 }
 
 //GET
-//curl -v http://localhost:8080/
-//curl -v http://localhost:9090/api
+//curl -v http://localhost:8080
+//curl -v http://localhost:9090
 //POST
-//curl -v -X POST -d "name=John&age=30" http://localhost:8080/submit
-//curl -v -X POST -d "name=John&age=30" http://localhost:9090/api/submit
+//curl -v -X POST -H "X-Filename: my_document.txt" -d "Hello, this is my file content." http://localhost:8080/
 //DELETE
 //curl -v -X DELETE http://localhost:8080/file-to-delete
-
-	// const std::vector<int> &ports = firstServer.getPorts();
-
-	// for (size_t j = 0; j < ports.size(); ++j)
-
-	// const std::vector<ServerConfig> &servers = parser.getServers();
-	// 	for (size_t i = 0; i < servers.size(); i++)
-	// 	{
-	// 		std::cout << "=== Server Configuration " << i + 1 << " ===" << std::endl;
-	// 		servers[i].printConfig();
-	// 		std::cout << std::endl;
-	// 	}
-	//setCookie(clientSocket, "sessionId", "123456");
-	//std::string getCookie(const std::string &request, const std::string &cookieName);
-	//handleCGI(clientSocket, "/path/to/cgi/script");
-
-	// std::string rawRequest =
-	//     "POST /upload HTTP/1.1\r\n"
-	//     "Host: example.com\r\n"
-	//     "User-Agent: curl/7.68.0\r\n"
-	//     "Content-Length: 11\r\n"
-	//     "Content-Type: text/plain\r\n"
-	//     "\r\n"
-	//     "Hello World";
-
-	// HttpParser parser;
-	// HttpRequest request = parser.parseRequest(rawRequest);
-
-	// std::cout << "=== Parsed HTTP Request ===" << std::endl;
-	// request.printRequest();

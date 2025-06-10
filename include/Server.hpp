@@ -14,10 +14,7 @@
 #define SERVER_HPP
 
 #include <iostream>
-
-#include <SignalHandler.hpp>
 #include <ConfigFileServer.hpp>
-
 #include <Client.hpp>
 #include <EPoll.hpp>
 #include <netdb.h> //getprotobyname
@@ -30,7 +27,7 @@
 class Server
 {
 	private:
-		std::vector<std::pair <std::string, int> > 	_hostPort; //hay que confirmar que el numero del puerto es valido
+		std::vector<std::pair <std::string, int> > 	_hostPort;
 		std::vector<int>	 						_fds;
 		struct protoent								*_proto;
 		ConfigFileServer							_currentConfig;

@@ -62,7 +62,7 @@ void EPoll::removeFD(int fd)
 
 int EPoll::wait()
 {
-	return (epoll_wait(_epollFd, _events.data(), MAX_EVENTS, 0)); //TIMEOUT not neccesary?
+	return (epoll_wait(_epollFd, _events.data(), MAX_EVENTS, 0));
 }
 
 struct epoll_event EPoll::getEvent(int index)

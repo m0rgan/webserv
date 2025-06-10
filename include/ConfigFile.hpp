@@ -49,7 +49,7 @@ class ConfigFile
 		size_t sizeConversion(const std::string &sizeStr);
 		std::string &ignoreComments(std::string &line);
 
-		void printConfig() const; //debug must delete
+		void printConfig() const;
 };
 
 #endif

@@ -116,7 +116,7 @@ HTTPResponse &HTTPResponse::setStatus(int code)
 {
 	std::map<int, std::string>::const_iterator it = _statusMap.find(code);
 	if (it == _statusMap.end())
-		it = _statusMap.find(500); //not found error handle static?
+		it = _statusMap.find(500);
 	std::stringstream ss;
 	ss << code;
 	_statusLine.first = ss.str();

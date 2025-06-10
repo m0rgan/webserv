@@ -129,7 +129,7 @@ void CGI::setup(const HTTPRequest &http)
 
 void CGI::execute(HTTPRequest *http, int socketPair[2])
 {
-	_fullPath = http->resolveFilePath(_currentConfig); // ya se hizo anteriormente, validar si se puede borrar
+	_fullPath = http->resolvedFilePath;
 	setup(*http);
 
 	(setCloexecFlag(socketPair[0]), setCloexecFlag(socketPair[1]));
@@ -228,6 +228,8 @@ void CGI::readCGIOutput(int fd)
 }
 
 bool CGI::isComplete() const { return _done; }
+std::string const CGI::getOutput(void) { return (_cgiOutput); }
+std::string const CGI::getHeaders(void) { return (_cgiHeaders); }
 
 void CGI::extractHeadersCGIOutput(void)
 {
@@ -244,14 +246,4 @@ void CGI::extractHeadersCGIOutput(void)
 	_cgiOutput = _cgiOutput.substr(headerEnd + (_fullPath.find(".py") != std::string::npos ? 2 : 4));
 	if (_cgiHeaders.find("Content-Type") == std::string::npos && _cgiHeaders.find("Content-type") == std::string::npos)
 		throw std::runtime_error("[ERROR] Missing Content-Type in CGI output");
-}
-
-std::string const CGI::getOutput(void)
-{
-	return (_cgiOutput);
-}
-
-std::string const CGI::getHeaders(void)
-{
-	return (_cgiHeaders);
 }

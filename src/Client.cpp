@@ -75,9 +75,16 @@ Client &Client::operator=(Client const &rhs)
 Client::~Client()
 {
 	if (_cgi)
+	{
 		delete _cgi;
+		_cgi = NULL;
+	}
 	if (_pendingRequest)
+	{
 		delete _pendingRequest;
+		_pendingRequest = NULL;
+
+	}
 }
 
 bool Client::isCGIFD(int fd) const {

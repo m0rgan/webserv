@@ -10,8 +10,8 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef EPOLL_MANAGER_HPP
-#define EPOLL_MANAGER_HPP
+#ifndef EPOLL_HPP
+#define EPOLL_HPP
 
 #include <sys/epoll.h>
 #include <fcntl.h>
@@ -21,7 +21,6 @@
 #include <iostream>
 
 #define MAX_EVENTS 4096
-#define TIMEOUT 5000
 
 class EPoll
 {

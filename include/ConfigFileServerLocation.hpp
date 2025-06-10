@@ -21,17 +21,17 @@
 class ConfigFileServerLocation
 {
 	private:
-		std::string									_root;
-		std::string									_alias;
-		std::vector<std::string>					_indexFiles;
-		std::vector<std::string>					_allowedMethods;
-		std::map<int, std::string>					_errorPages;
-		std::map<std::string, std::string>			_headers;
-		std::string									_uri;
-		bool										_autoIndex;
-		size_t										_maxBodySize;
-		std::pair<int, std::string>					_returnDirective;
-		bool										_hasReturnDirective;
+		std::string										_root;
+		std::string										_alias;
+		std::vector<std::string>						_indexFiles;
+		std::vector<std::string>						_allowedMethods;
+		std::map<int, std::string>						_errorPages;
+		std::map<std::string, std::string>				_headers;
+		std::string										_uri;
+		bool											_autoIndex;
+		size_t											_maxBodySize;
+		std::pair<int, std::string>						_returnDirective;
+		bool											_hasReturnDirective;
 		std::map<std::string, ConfigFileServerLocation>	_nestedLocations;
 
 	public:

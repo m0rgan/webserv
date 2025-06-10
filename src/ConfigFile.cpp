@@ -454,6 +454,5 @@ void ConfigFile::printConfig() const
 			it->second.printLocationConfig();
 		std::cout << "---------------------------" << std::endl;
 		std::cout << std::endl;
-
-}
+	}
 }

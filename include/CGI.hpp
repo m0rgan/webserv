@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   CGI.hpp                                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42.fr>          +#+  +:+       +#+        */
+/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/02/23 10:46:11 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/05/10 17:35:23 by migumore         ###   ########.fr       */
+/*   Updated: 2025/06/10 18:30:31 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,9 +15,6 @@
 
 #include <HTTPRequest.hpp>
 #include <Client.hpp>
-
-
-
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>

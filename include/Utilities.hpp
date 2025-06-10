@@ -23,7 +23,6 @@
 #include <fcntl.h>
 #include <iostream>
 
-
 #define BLUE "\033[34m"
 #define GREEN "\033[32m"
 #define MAGENTA "\033[35m"

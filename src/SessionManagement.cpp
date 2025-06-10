@@ -28,7 +28,7 @@ SessionManagement &SessionManagement::operator=(SessionManagement const &rhs)
 		_sessions = rhs._sessions;;
 	return (*this);
 }
-#include <iostream>
+
 SessionManagement::~SessionManagement(void)
 {
 	_sessions.clear();

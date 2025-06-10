@@ -14,7 +14,6 @@
 
 Server::Server() : _proto(NULL)
 {
-	//getprotobyname
 	_proto = getprotobyname("tcp");
 	if (!_proto)
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
@@ -27,7 +26,7 @@ Server::Server(const ConfigFileServer &config) : _hostPort(config.getHostPort())
 		throw std::runtime_error(std::string("getprotobyname: ") + strerror(errno));
 }
 
-Server::Server(Server const &src) : _hostPort(src._hostPort), _fds(src._fds), _currentConfig(src._currentConfig)  //must finish 
+Server::Server(Server const &src) : _hostPort(src._hostPort), _fds(src._fds), _currentConfig(src._currentConfig)
 {
 	this->_proto = getprotobyname("tcp");
 	if (!this->_proto)
@@ -105,10 +104,6 @@ int Server::createSocket(int protocol)
 	return (fd);
 }
 
-//  Handling Errors and Disconnections
-// if ((_pollFds[i].revents & POLLERR) || _pollFds[i].revents & POLLHUP)
-//     _pruneSocket(sd, sS);
-
 void Server::configureSocket(int serverSocket)
 {
 	int	opt = 1;
@@ -144,15 +139,15 @@ void Server::bindAndListen(int serverSocket, const std::string &host, int port)
 
 	std::string portStr = intToString(port);
 	if (getaddrinfo(host.c_str(), portStr.c_str(), &serverAddr, &list) != 0)
-		throw std::runtime_error("getaddrinfo failed for " + host + ":" + portStr); //close socket before throw?
+		throw std::runtime_error("getaddrinfo failed for " + host + ":" + portStr);
 	for (it = list; it != NULL; it = it->ai_next)
 		if (bind(serverSocket, it->ai_addr, it->ai_addrlen) == 0)
 			break;
 	freeaddrinfo(list);
 	if (!it)
-		throw std::runtime_error("bind failed: " + std::string(strerror(errno))); //close socket before throw?
+		throw std::runtime_error("bind failed: " + std::string(strerror(errno)));
 	if (listen(serverSocket, SOMAXCONN) == -1)
-		throw std::runtime_error("listen failed: " + std::string(strerror(errno))); //close socket before throw?
+		throw std::runtime_error("listen failed: " + std::string(strerror(errno)));
 	std::cout << "Server listening on " << host << ":" << port << std::endl;
 }
 

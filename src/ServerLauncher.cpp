@@ -106,7 +106,7 @@ void ServerLauncher::loop()
 	{
 		for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
 			Client* client = it->second;
-			if (client->getCGI() && std::time(NULL) - client->getCGITime() > 35) {
+			if (client->getCGI() && std::time(NULL) - client->getCGITime() > TIMEOUT) {
 				client->cleanupCGIState(504);
 				removeClient(client->getSocket());
 			}
@@ -184,11 +184,7 @@ void ServerLauncher::newClient(int serverFd)
 	Server* server = _servers[serverFd];
 
 	if (!server)
-	{
-		std::cerr << "[ERROR] No server found for FD: " << serverFd << std::endl;
 		return;
-	}
-
 	int clientFd = server->acceptClient(serverFd);
 	if (clientFd > 0)
 	{
@@ -203,7 +199,7 @@ void ServerLauncher::existingClient(int clientFd)
 	Client* client = _clients[clientFd];
 
 	if (!client)
-	return;
+		return;
 
 	HTTPRequest* http = NULL;
 	try

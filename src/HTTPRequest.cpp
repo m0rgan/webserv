@@ -39,7 +39,6 @@ HTTPRequest HTTPRequest::operator=(HTTPRequest const &rhs)
 HTTPRequest::~HTTPRequest(void)
 {
 	headers.clear();
-    // Fuerza que la memoria asignada internamente se libere.
     std::map<std::string, std::string>().swap(headers);
     
     body.clear();
@@ -76,7 +75,6 @@ void HTTPRequest::parserHeaders(const std::string &rawRequest)
 			while (!value.empty() && (value[0] == ' ' || value[0] == '\t'))
 				value.erase(0, 1);
 			headers.insert(std::make_pair(key, value));
-			// headers[key] = value;
 		}
 	}
 	try
@@ -181,7 +179,7 @@ std::string HTTPRequest::resolveFilePath(const ConfigFileServer &config) const
 		return ("");
 
 	if (!filePath.empty() && filePath[filePath.size() - 1] == '/')
-		filePath = filePath.substr(0, filePath.size() - 1); //probar cpn nginx un  request de archivo con / al final
+		filePath = filePath.substr(0, filePath.size() - 1);
 
 	return (filePath);
 }
@@ -343,7 +341,6 @@ std::string decodePercentEncoding(const std::string& str) {
 	}
 	return decoded;
 }
-
 
 bool HTTPRequest::validateRequest(const ConfigFileServer &config, Client &client)
 {

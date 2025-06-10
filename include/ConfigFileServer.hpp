@@ -35,7 +35,6 @@ class ConfigFileServer
 		bool											_autoIndex;
 		std::pair<int, std::string> 					_returnDirective;
 		bool 											_hasReturnDirective;
-		// default host:port?
 
 	public:
 		ConfigFileServer(void);

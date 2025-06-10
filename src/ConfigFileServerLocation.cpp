@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ConfigFileServerLocation.cpp                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: migumore <migumore@student.42madrid.com    +#+  +:+       +#+        */
+/*   By: gabrielfernandezleroux <gabrielfernande    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/03/23 13:41:30 by gabrielfern       #+#    #+#             */
-/*   Updated: 2025/04/02 18:37:40 by migumore         ###   ########.fr       */
+/*   Updated: 2025/06/10 18:30:07 by gabrielfern      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,7 @@
 
 ConfigFileServerLocation::ConfigFileServerLocation() : _autoIndex(false), _maxBodySize(1048576), _hasReturnDirective(false) {}
 ConfigFileServerLocation::ConfigFileServerLocation(const std::string &uri) : _uri(uri), _autoIndex(false), _maxBodySize(1048576), _hasReturnDirective(false) {}
-ConfigFileServerLocation::ConfigFileServerLocation(const ConfigFileServerLocation &src) {*this = src;} //fix
+ConfigFileServerLocation::ConfigFileServerLocation(const ConfigFileServerLocation &src) {*this = src;}
 ConfigFileServerLocation &ConfigFileServerLocation::operator=(const ConfigFileServerLocation &rhs)
 {
 	if (this != &rhs)
@@ -31,7 +31,6 @@ ConfigFileServerLocation &ConfigFileServerLocation::operator=(const ConfigFileSe
 		this->_hasReturnDirective = rhs._hasReturnDirective;
 		this->_maxBodySize = rhs._maxBodySize;
 		this->_nestedLocations = rhs._nestedLocations;
-		//some are missing
 	}
 	return (*this);
 }
@@ -73,7 +72,6 @@ bool ConfigFileServerLocation::matchesURI(const std::string &requestURI) const
 {
 	if (_uri.empty())
 		return (false);
-	// check for simple prefix match?
 	return (requestURI.find(_uri) == 0);
 }
 

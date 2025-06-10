@@ -21,7 +21,6 @@ MANDATORY 	=	src/main.cpp \
 				src/ConfigFileServer.cpp \
 				src/ConfigFileServerLocation.cpp \
 				src/ServerLauncher.cpp \
-				src/SignalHandler.cpp \
 				src/Server.cpp \
 				src/Client.cpp \
 				src/EPoll.cpp \

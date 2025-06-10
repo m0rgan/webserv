@@ -17,6 +17,7 @@
 #include <map>
 #include <ctime>
 #include <cstdlib>
+#include <iostream>
 
 class SessionManagement
 {

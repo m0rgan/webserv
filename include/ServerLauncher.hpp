@@ -23,6 +23,7 @@
 #include "SessionManagement.hpp"
 
 #define DEFAULT_CONFIG "default.conf"
+#define TIMEOUT 15
 
 class Server;
 class ServerLauncher
