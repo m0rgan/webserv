@@ -228,13 +228,19 @@ void Client::handleRequest(HTTPRequest *http)
 				prepareErrorResponse(500);
 				return;
 			}
+			if (_cgi) {
+				// std::cerr << "Client::handleRequest: CGI already active for client " << _clientSocket << std::endl;
+				prepareErrorResponse(429);
+				delete http;
+				return;
+			}
 			_cgi = new CGI(_serverLauncher, _currentConfig);
 			_cgi->execute(http, socketPair);
 			_cgiStartTime = std::time(NULL);
 			_pendingRequest = http;
 			_cgiPipeFD = socketPair[0];
 			setCloexecFlag(_cgiPipeFD);
-
+			// std::cerr << "Client::handleRequest cgi fd: " << _cgiPipeFD << " from client: " <<_clientSocket << std::endl;
 			_serverLauncher->registerCGIFD(_cgiPipeFD, _clientSocket);
 
 			return;

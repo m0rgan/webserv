@@ -40,6 +40,7 @@ std::map<int, std::string> ErrorPage::initErrorStatusCodes()
 	status[405] = "Method Not Allowed";
 	status[408] = "Request Timeout";
 	status[413] = "Payload Too Large";
+	status[429] = "Too Many Requests ";
 	status[500] = "Internal Server Error";
 	status[501] = "Not Implemented";
 	status[503] = "Service Unavailable";

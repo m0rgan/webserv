@@ -108,6 +108,7 @@ void ServerLauncher::loop()
 			Client* client = it->second;
 			if (client->getCGI()) {
                 if (std::time(NULL) - client->getCGITime() > TIMEOUT) {
+					// std::cerr << "ServerLauncher::existingClient  timeout: " << client->getSocket() << std::endl;
                     client->cleanupCGIState(504);
                     removeClient(client->getSocket());
                 }
@@ -127,6 +128,7 @@ void ServerLauncher::loop()
 				{
 					int clientFd = _cgiFDMap[fd];
 					Client* client = _clients[clientFd];
+					// std::cerr << "epoll err before cleanup: " << clientFd << std::endl;
 					if (client)
 						client->cleanupCGIState(500);
 					removeClient(clientFd);
@@ -167,6 +169,7 @@ void ServerLauncher::loop()
 							if (_clients[fd]->getCGI()) {
 								_epoll.modifyFD(fd, EPOLLIN);
 							} else {
+								// std::cerr << "epollOUT  delete because no cgi: " << fd << std::endl;
 								removeClient(fd);
 							}
 						}
@@ -199,6 +202,7 @@ void ServerLauncher::newClient(int serverFd)
 		setCloexecFlag(clientFd);
 		_epoll.addFD(clientFd, EPOLLIN | EPOLLOUT);
 		_clients[clientFd] = new Client(clientFd, server->getConfig(), _sessionManager, this);
+		// std::cerr << "ServerLauncher::newClient fd: " << clientFd << std::endl;
 	}
 }
 
@@ -219,6 +223,7 @@ void ServerLauncher::existingClient(int clientFd)
 			{
 				if (http)
 					delete http;
+				// std::cerr << "ServerLauncher::existingClient delete because no cgi: " << clientFd << std::endl;
 				removeClient(clientFd);
 			}
 			return;
@@ -240,6 +245,7 @@ void ServerLauncher::existingClient(int clientFd)
 		{
 			if (http)
 				delete http;
+			// std::cerr << "ServerLauncher::existingClient  exception no cgi: " << clientFd << std::endl;
 			removeClient(clientFd);
 		}
 	}
