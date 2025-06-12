@@ -18,6 +18,7 @@
 
 class HttpRequest
 {
+       friend class HttpParser; // Allow HttpParser to fill internal fields
 private:
 	std::string method;							// GET, POST, DELETE, etc.
 	std::string uri;							// Request URI (e.g., "/index.html")
