@@ -44,6 +44,7 @@ struct envCGI
 	std::string userAgent;
 	std::string host;
 	std::string referer;
+	std::string httpCookie;
 };
 
 class ServerLauncher;

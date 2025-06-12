@@ -266,12 +266,11 @@ void Client::handleCookies(HTTPRequest *http)
 	if (!sessionID.empty() && !_sessionManager.sessionExists(sessionID))
 	{
 		_sessionManager.createSession(sessionID);
-		_cookies.setCookie("SESSIONID", sessionID + "; Path=/; HttpOnly");
 	}
 	else if (sessionID.empty()) 
 	{
 		sessionID = _sessionManager.createSession("");
-		_cookies.setCookie("SESSIONID", sessionID);
+		_cookies.setCookie("SESSIONID", sessionID + "; Path=/; HttpOnly");
 	} 
 	std::map<std::string, std::string> &session = _sessionManager.getSession(sessionID);
 	session["last_access"] = getCurrentTimestamp();

@@ -51,12 +51,12 @@ class Client
 		std::string			_responseBuffer;
 		time_t				_cgiStartTime;
 
-		void	handleGET(HTTPRequest *http);
-		void	handlePOST(HTTPRequest *http);
-		void	handleDELETE(HTTPRequest *http);
-		bool	lengthData(HTTPRequest *http);
-		bool	chunkedData(HTTPRequest *http);
-		bool	routeToCGI(std::string requestURI);
+		void				handleGET(HTTPRequest *http);
+		void				handlePOST(HTTPRequest *http);
+		void				handleDELETE(HTTPRequest *http);
+		bool				lengthData(HTTPRequest *http);
+		bool				chunkedData(HTTPRequest *http);
+		bool				routeToCGI(std::string requestURI);
 		
 		Cookies				_cookies;
 		void				handleCookies(HTTPRequest *http);
@@ -69,22 +69,18 @@ class Client
 		
 		Client(int socket, const ConfigFileServer &config, SessionManagement &sessionManager, ServerLauncher* serverLauncher);
 		HTTPRequest* readRequest();
-		void handleRequest(HTTPRequest *http);
-		bool hasPendingData() const;
-		void writeResponse();
-		
-		bool keepAlive() const;
-		
 		const ConfigFileServer& getConfigFileServer() const;
-		void setConfigFileServer(const ConfigFileServer &config);
-		void resetState(void);
 		
+		void	handleRequest(HTTPRequest *http);
+		bool	hasPendingData() const;
+		void	writeResponse();
+		bool	keepAlive() const;
+		void	setConfigFileServer(const ConfigFileServer &config);
+		void	resetState(void);
 		void	prepareResponse(int statusCode, const std::string &contentType, const std::string &body, const std::string &redirectUrl, const std::string &additionalHeaders);
 		void	prepareErrorResponse(int statusCode);
-
 		bool	isCGIFD(int fd) const;
 		void	handleCGIOutput(int fd);
-
 		void	cleanupCGIState(int errorCode);
 		int		getSocket();
 		CGI*	getCGI();

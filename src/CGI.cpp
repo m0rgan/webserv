@@ -98,7 +98,6 @@ void CGI::setupEnvironment(const HTTPRequest &http)
 		_env.push_back(const_cast<char*>(_envBuffer.host.c_str()));
 	if (!_envBuffer.referer.empty())
 		_env.push_back(const_cast<char*>(_envBuffer.referer.c_str()));
-	_env.push_back(NULL);
 }
 
 void CGI::setup(const HTTPRequest &http)
@@ -112,17 +111,18 @@ void CGI::setup(const HTTPRequest &http)
 	{
 		std::string cookies = http.headers.at("Cookie");
 		size_t pos = cookies.find("SESSIONID=");
-		if (pos != std::string::npos)
-		{
-			size_t end = cookies.find(";", pos);
-			sessionID = cookies.substr(pos + 9, (end == std::string::npos) ? end : end - (pos + 9));
+		if (pos != std::string::npos) {
+			size_t start = pos + 10;
+			size_t end = cookies.find(";", start);
+			sessionID = cookies.substr(start, (end == std::string::npos) ? std::string::npos : end - start);
 		}
 	}
 	if (!sessionID.empty())
 	{
-		_envBuffer.sessionID = "SESSIONID=" + sessionID;
-		_env.push_back(const_cast<char*>(_envBuffer.sessionID.c_str()));
+		_envBuffer.httpCookie = "HTTP_COOKIE=SESSIONID=" + sessionID;
+		_env.push_back(const_cast<char*>(_envBuffer.httpCookie.c_str()));
 	}
+	_env.push_back(NULL);
 	_argv.push_back(const_cast<char*>(_fullPath.c_str()));
 	_argv.push_back(NULL);
 }
@@ -175,6 +175,7 @@ void CGI::childProcess(int socketPair[2], HTTPRequest *http)
 			(close(socketPair[1]), std::exit(1));
 		}
 	}
+	std::string filePath = _fullPath.substr(pos + 1);
 	if (dup2(socketPair[1], STDIN_FILENO) == -1 || dup2(socketPair[1], STDOUT_FILENO) == -1 || dup2(socketPair[1], STDERR_FILENO) == -1)
 	{	
 		(close(socketPair[1]));
@@ -192,7 +193,7 @@ void CGI::childProcess(int socketPair[2], HTTPRequest *http)
 		std::exit(1);
 	}
 
-	execve(_argv[0], _argv.data(), _env.data());
+	execve(("./" + filePath).c_str(), _argv.data(), _env.data());
 	_serverLauncher->cleanupChild();
 	// http->~HTTPRequest();
 	std::cerr << "" <<http->headers[0] << std::endl;

@@ -106,10 +106,12 @@ void ServerLauncher::loop()
 	{
 		for (std::map<int, Client*>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
 			Client* client = it->second;
-			if (client->getCGI() && std::time(NULL) - client->getCGITime() > TIMEOUT) {
-				client->cleanupCGIState(504);
-				removeClient(client->getSocket());
-			}
+			if (client->getCGI()) {
+                if (std::time(NULL) - client->getCGITime() > TIMEOUT) {
+                    client->cleanupCGIState(504);
+                    removeClient(client->getSocket());
+                }
+            }
 		}
 
 		int epollEvents = _epoll.wait();
@@ -161,7 +163,13 @@ void ServerLauncher::loop()
 							_epoll.modifyFD(fd, EPOLLIN);
 						}
 						else
-							removeClient(fd);
+						{
+							if (_clients[fd]->getCGI()) {
+								_epoll.modifyFD(fd, EPOLLIN);
+							} else {
+								removeClient(fd);
+							}
+						}
 					}
 				}
 			}
@@ -207,9 +215,12 @@ void ServerLauncher::existingClient(int clientFd)
 		http = client->readRequest();
 		if (!http || http->method.empty() || http->uri.empty())
 		{
-			if (http)
-				delete http;
-			removeClient(clientFd);
+			if (!client->getCGI())
+			{
+				if (http)
+					delete http;
+				removeClient(clientFd);
+			}
 			return;
 		}
 		Server* server = serverSelector(*http);
@@ -225,9 +236,12 @@ void ServerLauncher::existingClient(int clientFd)
 	}
 	catch (const std::exception &e)
 	{
-		if (http)
-			delete http;
-		removeClient(clientFd);
+		if (!client->getCGI())
+		{
+			if (http)
+				delete http;
+			removeClient(clientFd);
+		}
 	}
 }
 
