@@ -31,11 +31,15 @@ HttpRequest HttpParser::parseRequest(const std::string &rawRequest)
 		std::size_t colonPos = line.find(':');
 		if (colonPos != std::string::npos)
 		{
-			std::string key = line.substr(0, colonPos);
-			std::string value = line.substr(colonPos + 1);
-			while (!value.empty() && (value[0] == ' ' || value[0] == '\t'))
-				value.erase(0, 1); // Trim leading spaces
-			request.headers[key] = value;
+                        std::string key = line.substr(0, colonPos);
+                        std::string value = line.substr(colonPos + 1);
+                        while (!value.empty() && (value[0] == ' ' || value[0] == '\t'))
+                                value.erase(0, 1); // Trim leading spaces
+                        while (!value.empty() && (value[value.size() - 1] == '\r' ||
+                                                  value[value.size() - 1] == ' ' ||
+                                                  value[value.size() - 1] == '\t'))
+                                value.erase(value.size() - 1); // Trim trailing spaces/CR
+                        request.headers[key] = value;
 		}
 	}
 
